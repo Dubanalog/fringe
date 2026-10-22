@@ -8,6 +8,7 @@ export * from './topsheet';
 export * from './lines';
 export * from './ranges';
 export * from './fringes';
+export * from './fringe-library';
 export * from './formula';
 export * from './calc';
 export * from './currency';

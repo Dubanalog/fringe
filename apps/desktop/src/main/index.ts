@@ -79,6 +79,7 @@ import {
   saveProject,
   writeAtomic,
 } from './projects';
+import { registerFringeLibraryIpc } from './fringe-library';
 
 const isDev = !app.isPackaged && process.env['ELECTRON_RENDERER_URL'] !== undefined;
 
@@ -624,6 +625,7 @@ if (!app.requestSingleInstanceLock()) {
     registerProjectIpc();
     registerAiIpc();
     registerAddonIpc();
+    registerFringeLibraryIpc();
     serveAddons();
     setMenu();
     createMainWindow();

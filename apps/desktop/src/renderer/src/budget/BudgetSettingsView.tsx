@@ -46,6 +46,7 @@ import { SlidingHighlight } from '../SlidingHighlight';
 import { AssumptionsEditor } from './AssumptionsEditor';
 import { Percentages, TaxIncentives } from './Percentages';
 import { ColorPick } from './ColorPick';
+import { FringeLibraryPicker } from './FringeLibrary';
 import { usePref } from './prefs';
 import { ThemePicker } from '../theme/ThemePicker';
 
@@ -719,6 +720,7 @@ export function BudgetSettingsView({ budget, update }: Props) {
               ])
             }
           />
+          <FringeLibraryPicker budget={budget} update={update} />
         </>
       )}
     </section>
@@ -905,7 +907,7 @@ function Currencies({ budget, update }: { budget: Budget; update(b: Budget, labe
 }
 
 /** Keeps digits and one decimal point. */
-function decimalText(v: string): string {
+export function decimalText(v: string): string {
   const [whole = '', ...rest] = v.replace(/[^\d.]/g, '').split('.');
   return rest.length ? `${whole}.${rest.join('')}` : whole;
 }
@@ -946,7 +948,7 @@ export function NameInput(props: { label: string; value: string; onRename(to: st
 }
 
 /** A box and button to add a new fringe or group. */
-function AddName(props: { noun: string; taken: readonly string[]; onAdd(name: string): void }) {
+export function AddName(props: { noun: string; taken: readonly string[]; onAdd(name: string): void }) {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const name = draft.trim();

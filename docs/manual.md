@@ -186,6 +186,23 @@ a rate change), put those lines in one **fringe range** so the cutoff is used up
 instead of starting again on each line. Drag down the **Range** column across those lines to draw
 one; the column shows which lines belong together.
 
+### Your rate library
+
+Fringe doesn't come with any rates: there's no public rate sheet, and rates change every year.
+Instead, you keep your own library of rates and add them to any budget.
+
+- **Save These to Library** (Budget Settings › Fringes) copies the budget's fringes into the
+  library, dated today and noted with the budget's name.
+- **Settings › Fringe Rates** is the library itself. Type rates in from your payroll company's or
+  union's sheet, with the date they're right as of and where they came from.
+- **Export Rates…** saves the library as a file to send to a colleague; **Import Rates…** adds
+  theirs to yours. A rate with the same name as one you have replaces it.
+- **Add from Library…** (Budget Settings › Fringes) lists the library; tick the rates you want and
+  click **Add to Budget**. Where the budget already has a fringe of that name, it takes the
+  library's rate, and its lines keep it.
+
+Adding rates copies them: changing the library later never changes a budget.
+
 ---
 
 ## 6. Reports
@@ -279,7 +296,8 @@ sidebar. Add-ons read the budget; they don't change it.
 ## 11. Settings
 
 **Settings** (bottom of the sidebar) holds what applies to the whole app: the appearance (light,
-dark and color themes), Global Knowledge, and the version you're running.
+dark and color themes), your fringe rate library (see section 5), Global Knowledge, and the
+version you're running.
 
 ---
 

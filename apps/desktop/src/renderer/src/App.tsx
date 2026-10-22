@@ -27,6 +27,7 @@ import { AiPanel } from './ai/AiPanel';
 import { type AiActivity, AssistantView } from './ai/AssistantView';
 import type { Approval, ChatSeed } from './ai/ChatView';
 import { BudgetSettingsView } from './budget/BudgetSettingsView';
+import { FringeLibrarySettings } from './budget/FringeLibrary';
 import { BudgetWorkspace } from './budget/BudgetWorkspace';
 import { HistoryView } from './budget/HistoryView';
 import { ImportReportView } from './budget/ImportReportView';
@@ -964,6 +965,9 @@ function SettingsView({ info }: { info: AppInfo | null }) {
       <h3>Preview</h3>
       <p className="muted">Sample numbers, for checking theme legibility only.</p>
       <ThemePreviewGrid />
+
+      <h2>Fringe Rates</h2>
+      <FringeLibrarySettings />
 
       <h2>Global Knowledge</h2>
       <p>

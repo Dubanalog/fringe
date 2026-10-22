@@ -1,4 +1,11 @@
-import type { Budget, BudgetHistory, HistoryEvent, ProjectFile, ReportDoc } from '@fringe/budget-engine';
+import type {
+  Budget,
+  BudgetHistory,
+  HistoryEvent,
+  LibraryFringe,
+  ProjectFile,
+  ReportDoc,
+} from '@fringe/budget-engine';
 
 /**
  * The complete IPC surface between the renderer and the main process.
@@ -62,6 +69,10 @@ export const IpcChannel = {
   saveBudgetCsv: 'reports:save-csv',
   saveVersionPdf: 'versions:save-pdf',
   revealVersionPdf: 'versions:reveal-pdf',
+  fringeLibrary: 'fringe-library:get',
+  saveFringeLibrary: 'fringe-library:save',
+  exportFringeLibrary: 'fringe-library:export',
+  importFringeLibrary: 'fringe-library:import',
   addonsList: 'addons:list',
   addonsRemove: 'addons:remove',
   addonsReveal: 'addons:reveal',
@@ -115,6 +126,14 @@ export interface FringeApi {
   saveVersionPdf(path: string, name: string, doc: ReportDoc, landscape: boolean): Promise<SaveReportResult>;
   /** Shows a version's PDF in the system file manager; false when it isn't there any more. */
   revealVersionPdf(path: string, file: string): Promise<boolean>;
+  /** The fringe rate library: the user's own rates, kept on this computer. */
+  fringeLibrary(): Promise<LibraryFringe[]>;
+  /** Replaces the library; resolves with it as saved (names trimmed, unusable values refused). */
+  saveFringeLibrary(fringes: LibraryFringe[]): Promise<LibraryFringe[]>;
+  /** Asks where, then saves the library as a file to share. Null if the user cancels. */
+  exportFringeLibrary(): Promise<SaveReportResult | null>;
+  /** Asks for a rate library file and merges it in: same names are replaced. Null if cancelled. */
+  importFringeLibrary(): Promise<ImportLibraryResult | null>;
   /** Asks for a .fringe file, unpacks it into a new project folder and opens it. */
   openFringeFile(): Promise<OpenProjectResult | null>;
   /** Asks for a budget made in another program, for the AI to convert. Its path, or null. */
@@ -339,3 +358,6 @@ export interface RecentProject {
   /** The folder is no longer there (moved or deleted). */
   missing: boolean;
 }
+
+export type ImportLibraryResult =
+  { ok: true; library: LibraryFringe[]; added: number; replaced: number } | { ok: false; error: string };

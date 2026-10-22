@@ -27,6 +27,10 @@ const api: FringeApi = {
   saveVersionPdf: (path, name, doc, landscape) =>
     ipcRenderer.invoke(IpcChannel.saveVersionPdf, path, name, doc, landscape),
   revealVersionPdf: (path, file) => ipcRenderer.invoke(IpcChannel.revealVersionPdf, path, file),
+  fringeLibrary: () => ipcRenderer.invoke(IpcChannel.fringeLibrary),
+  saveFringeLibrary: (fringes) => ipcRenderer.invoke(IpcChannel.saveFringeLibrary, fringes),
+  exportFringeLibrary: () => ipcRenderer.invoke(IpcChannel.exportFringeLibrary),
+  importFringeLibrary: () => ipcRenderer.invoke(IpcChannel.importFringeLibrary),
   openFringeFile: () => ipcRenderer.invoke(IpcChannel.openFringeFile),
   pickBudgetToConvert: () => ipcRenderer.invoke(IpcChannel.pickBudgetToConvert),
   openDropped: (path) => ipcRenderer.invoke(IpcChannel.openDropped, path),

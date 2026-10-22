@@ -60,6 +60,8 @@ jobs:
           # otherwise an ad-hoc signature so the app still opens on Apple Silicon.
           if [ "$RUNNER_OS" = macOS ] && [ -z "$CSC_LINK" ]; then
             echo "::warning::No Apple certificate in secrets; building an unsigned (ad-hoc) Mac app."
+            # An empty CSC_LINK is read as a certificate path (the current folder), so drop it.
+            unset CSC_LINK CSC_KEY_PASSWORD
             extra=(-c.mac.identity=- -c.mac.notarize=false)
           fi
           npx electron-builder ${{ matrix.args }} "${extra[@]}" --publish never

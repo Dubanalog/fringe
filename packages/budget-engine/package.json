@@ -1,0 +1,16 @@
+{
+  "name": "@fringe/budget-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic budget calculation engine for Fringe.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  }
+}

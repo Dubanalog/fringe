@@ -1,0 +1,52 @@
+# Installer configuration. Built by GitHub Actions (.github/workflows/release.yml).
+appId: org.fringe.budget
+productName: Fringe
+copyright: Copyright © 2026 Fringe contributors
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+asar: true
+# node-pty (the Claude panel's terminal) is native; it has to load from outside the archive.
+asarUnpack:
+  - node_modules/node-pty/**
+# node-pty is built on Node's stable addon API: it ships binaries for Windows and macOS (both
+# architectures) and compiles on Linux at npm install, and those load in Electron as they are.
+npmRebuild: false
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+win:
+  target: [nsis, zip]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  target: [dmg, zip]
+  category: public.app-category.finance
+  # Signed with the Developer ID certificate in CSC_LINK and notarized with APPLE_ID,
+  # APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID (see docs/RELEASING.md). Without them the
+  # workflow falls back to an ad-hoc signature, which Apple Silicon needs to launch the app at all.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+
+linux:
+  # AppImage runs anywhere; deb for Debian, Ubuntu and Mint; rpm for Fedora, RHEL and openSUSE;
+  # tar.gz for everything else (Arch and the like).
+  target: [AppImage, deb, rpm, tar.gz]
+  category: Office
+  maintainer: Fringe contributors
+  synopsis: Production budgeting for film and television
+
+# Double-clicking a .fringe file (one budget project, zipped) opens it in the app.
+fileAssociations:
+  - ext: fringe
+    name: Fringe Budget
+    description: Fringe budget project
+    role: Editor

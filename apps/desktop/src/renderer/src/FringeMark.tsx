@@ -1,0 +1,13 @@
+/** The Fringe app icon (docs/brand/fringe-icon.svg), inline so it needs no asset loading. */
+export function FringeMark({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" className="brand-mark">
+      <rect width="512" height="512" rx="112" fill="#F2B33D" />
+      <path
+        fill="#1A1A1A"
+        d="M164 136H171.34A24 24 0 0 1 194.43 153.45A64 64 0 0 0 317.57 153.45A24 24 0 0 1 340.66 136H348A28 28 0 0 1 376 164V348A28 28 0 0 1 348 376H164A28 28 0 0 1 136 348V164A28 28 0 0 1 164 136Z"
+      />
+      <circle cx="256" cy="300" r="34" fill="#D63A2B" />
+    </svg>
+  );
+}

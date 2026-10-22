@@ -1,0 +1,81 @@
+/*
+ * Theme tokens. Components use only these variables, never raw colors.
+ * Each theme defines the full set. Register new themes in theme/themes.ts.
+ *
+ *   --bg            app background          --text          primary text
+ *   --surface       panels, grid body       --text-muted    secondary text
+ *   --surface-alt   sidebar, headers        --border        hairlines
+ *   --hover         row/button hover        --accent        selection, primary
+ *   --accent-text   text on accent          --focus         keyboard focus ring
+ *   --positive / --negative                 increases / decreases in comparisons
+ *   --changed       edited-row highlight    --excluded      lines out of budget total
+ */
+
+:root,
+[data-theme='light'] {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-alt: #efefec;
+  --hover: #e8e8e4;
+  --border: #dcdcd6;
+  --text: #1b1d22;
+  --text-muted: #62666f;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --focus: #2f5bd3;
+  --positive: #1d7a46;
+  --negative: #b3261e;
+  --changed: #fff4cc;
+  --excluded: #9a9da5;
+}
+
+[data-theme='dark'] {
+  --bg: #16181d;
+  --surface: #1e2128;
+  --surface-alt: #191b21;
+  --hover: #2a2e37;
+  --border: #30343e;
+  --text: #e6e8ec;
+  --text-muted: #9aa0ab;
+  --accent: #7aa2ff;
+  --accent-text: #0e1220;
+  --focus: #7aa2ff;
+  --positive: #5fd08f;
+  --negative: #ff8a80;
+  --changed: #3a3420;
+  --excluded: #6b707b;
+}
+
+[data-theme='blue'] {
+  --bg: #0f1a2e;
+  --surface: #16243d;
+  --surface-alt: #122036;
+  --hover: #1f3253;
+  --border: #263c60;
+  --text: #e3ecf8;
+  --text-muted: #93a7c4;
+  --accent: #5cb3ff;
+  --accent-text: #08182c;
+  --focus: #5cb3ff;
+  --positive: #5fd08f;
+  --negative: #ff8a80;
+  --changed: #33361f;
+  --excluded: #64799a;
+}
+
+[data-theme='green'] {
+  --bg: #0f1f19;
+  --surface: #162b23;
+  --surface-alt: #12251e;
+  --hover: #1f3a2f;
+  --border: #284838;
+  --text: #e2f1ea;
+  --text-muted: #92b3a3;
+  --accent: #4fd18b;
+  --accent-text: #08201a;
+  --focus: #4fd18b;
+  --positive: #7fe0a8;
+  --negative: #ff8a80;
+  --changed: #37361d;
+  --excluded: #6b8a7c;
+}

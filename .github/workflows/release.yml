@@ -1,0 +1,122 @@
+name: Build installers
+
+# Push a tag like v0.2.0 to build every platform and create a draft GitHub
+# Release. Run manually from the Actions tab to build without releasing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (x64 + arm64)
+            os: windows-latest
+            args: --win --x64 --arm64
+          - name: macOS (Apple Silicon + Intel)
+            os: macos-latest
+            args: --mac --arm64 --x64
+          - name: Linux (x64)
+            os: ubuntu-latest
+            args: --linux --x64
+          - name: Linux (arm64)
+            os: ubuntu-24.04-arm
+            args: --linux --arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version -w fringe
+
+      - run: npm test
+
+      # rpmbuild makes the .rpm; Ubuntu runners don't have it.
+      - name: Install rpm tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build installers
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          npx electron-vite build
+          extra=()
+          # macOS: sign and notarize when the Apple secrets are set (docs/RELEASING.md),
+          # otherwise an ad-hoc signature so the app still opens on Apple Silicon.
+          if [ "$RUNNER_OS" = macOS ] && [ -z "$CSC_LINK" ]; then
+            echo "::warning::No Apple certificate in secrets; building an unsigned (ad-hoc) Mac app."
+            extra=(-c.mac.identity=- -c.mac.notarize=false)
+          fi
+          npx electron-builder ${{ matrix.args }} "${extra[@]}" --publish never
+        env:
+          # Windows stays unsigned for now; only the Mac build uses a certificate.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && 'true' || 'false' }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.rpm
+            apps/desktop/release/*.tar.gz
+
+  manual:
+    name: User manual (PDF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Electron prints the PDF, and on Linux it needs a display even when hidden.
+      - run: xvfb-run -a npx electron --no-sandbox scripts/manual-pdf.mjs Fringe-Manual.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manual
+          if-no-files-found: error
+          path: Fringe-Manual.pdf
+
+  release:
+    name: Draft GitHub Release
+    needs: [build, manual]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist/*

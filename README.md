@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/brand/fringe-wordmark.svg" alt="Fringe" width="320">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/fringe-wordmark-dark.svg">
+    <img src="docs/brand/fringe-wordmark.svg" alt="Fringe" width="320">
+  </picture>
 </p>
 
 <p align="center">

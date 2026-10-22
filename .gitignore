@@ -7,3 +7,5 @@ release/
 Thumbs.db
 coverage/
 *.tsbuildinfo
+test-results/
+playwright-report/

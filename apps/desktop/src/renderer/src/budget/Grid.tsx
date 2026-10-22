@@ -236,10 +236,15 @@ export function Grid(props: Props) {
     setError(null);
     const id = props.onInsert(sibling, position);
     if (!id) return;
-    // The new row renders on the next pass; edit its first column (usually the suggested number).
-    onSelect({ row: id, col: 0 });
+    // The new row renders on the next pass; edit its first editable column (usually the suggested
+    // number, or a detail line's description).
+    const col = Math.max(
+      0,
+      columns.findIndex((c) => c.editable),
+    );
+    onSelect({ row: id, col });
     editDone.current = false;
-    setEditing({ row: id, col: 0, value: null, typed: false });
+    setEditing({ row: id, col, value: null, typed: false });
   };
 
   const remove = (rowId: string | undefined = current?.row) => {

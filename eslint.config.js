@@ -6,7 +6,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/out/**', '**/dist/**', '**/release/**'],
+    ignores: [
+      '**/node_modules/**',
+      '**/out/**',
+      '**/dist/**',
+      '**/release/**',
+      'test-results/**',
+      'playwright-report/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -28,6 +35,7 @@ export default tseslint.config(
       '*.config.{js,ts}',
       'apps/desktop/*.config.ts',
       'scripts/**',
+      'e2e/**',
     ],
     languageOptions: { globals: globals.node },
   },

@@ -544,6 +544,14 @@ app.on('web-contents-created', (_event, contents) => {
 
 registerAddonScheme();
 
+// The end-to-end tests (e2e/) run the app against a throwaway folder, so they never touch a real
+// install's settings or budgets, and can run while Fringe is open.
+const testHome = process.env['FRINGE_TEST_HOME'];
+if (testHome) {
+  app.setPath('userData', join(testHome, 'app-data'));
+  app.setPath('documents', join(testHome, 'Documents'));
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {

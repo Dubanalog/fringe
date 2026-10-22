@@ -5,6 +5,8 @@ import icon from '../../build/icon.png?asset';
 import { ENGINE_VERSION } from '@fringe/budget-engine';
 import {
   BrowserWindow,
+  Menu,
+  type MenuItemConstructorOptions,
   type OpenDialogOptions,
   type SaveDialogOptions,
   app,
@@ -79,6 +81,53 @@ import {
 } from './projects';
 
 const isDev = !app.isPackaged && process.env['ELECTRON_RENDERER_URL'] !== undefined;
+
+const repoUrl = 'https://github.com/Dubanalog/fringe';
+
+// Everything happens in the window, so the menu bar is only File > Exit and Help, whose links open
+// in the user's browser. The Mac keeps its app, Edit and Window menus: there, copy and paste in
+// text boxes go through the Edit menu, and About is in the app menu. Development keeps Electron's
+// full menu, for reload and the developer tools.
+function setMenu(): void {
+  if (isDev) return;
+  const mac = process.platform === 'darwin';
+  app.setAboutPanelOptions({
+    applicationName: 'Fringe',
+    applicationVersion: app.getVersion(),
+    copyright: 'Free software under the GNU AGPL-3.0',
+    website: repoUrl,
+  });
+  const help: MenuItemConstructorOptions = {
+    role: 'help',
+    submenu: [
+      { label: 'Fringe Manual', click: () => void shell.openExternal(`${repoUrl}/blob/main/docs/manual.md`) },
+      { label: 'Fringe on GitHub', click: () => void shell.openExternal(repoUrl) },
+      { label: 'Report a Problem', click: () => void shell.openExternal(`${repoUrl}/issues`) },
+      ...(mac
+        ? []
+        : [
+            { type: 'separator' } as const,
+            {
+              label: 'About Fringe',
+              click: () =>
+                void dialog.showMessageBox({
+                  title: 'About Fringe',
+                  message: `Fringe ${app.getVersion()}`,
+                  detail: `Production budgeting for film and television.\nFree software under the GNU AGPL-3.0.\n${repoUrl}`,
+                  icon,
+                }),
+            },
+          ]),
+    ],
+  };
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(
+      mac
+        ? [{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }, help]
+        : [{ role: 'fileMenu' }, help],
+    ),
+  );
+}
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -576,6 +625,7 @@ if (!app.requestSingleInstanceLock()) {
     registerAiIpc();
     registerAddonIpc();
     serveAddons();
+    setMenu();
     createMainWindow();
     void mcpEnabled().then((on) => (on ? startMcpServer(callTool) : null));
     app.on('activate', () => {

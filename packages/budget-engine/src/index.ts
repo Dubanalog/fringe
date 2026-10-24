@@ -9,6 +9,7 @@ export * from './lines';
 export * from './ranges';
 export * from './fringes';
 export * from './fringe-library';
+export * from './fringe-breakdown';
 export * from './formula';
 export * from './calc';
 export * from './currency';

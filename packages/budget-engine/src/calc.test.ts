@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Account, type Budget, DEFAULT_BUDGET_SETTINGS, type DetailLine } from './model';
 import { evaluateFormula, globalLookup, resolveGlobals } from './formula';
 import {
+  addCategoryFringeAccounts,
   addGlobal,
   calculateTotals,
   deleteGlobal,
@@ -197,6 +198,17 @@ describe('totals', () => {
     };
     expect(t(none)).toMatchObject({ a1: { fringe: '110', total: '1410' }, a9: '0' });
     expect(calculateTotals(none).unpostedCategories).toHaveLength(1);
+
+    // Creating the missing account: 1198, before 1199, and the fringes post to it.
+    const made = addCategoryFringeAccounts(none);
+    expect(made.added).toEqual(['1198']);
+    const accounts = made.budget.categories[0]!.accounts;
+    expect(accounts.map((a) => a.number)).toEqual([...accounts.map((a) => a.number)].sort());
+    expect(accounts.find((a) => a.number === '1198')?.description).toBe('Total Fringes');
+    expect(calculateTotals(made.budget).unpostedCategories).toEqual([]);
+    expect(t(made.budget)).toMatchObject({ a1: { fringe: '0', total: '1300' }, grand: '1410' });
+    // Nothing left to add.
+    expect(addCategoryFringeAccounts(made.budget).added).toEqual([]);
   });
 
   it('puts fringes on the topsheet, per production level or once for the budget', () => {

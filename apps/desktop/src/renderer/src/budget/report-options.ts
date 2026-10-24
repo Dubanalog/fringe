@@ -23,14 +23,16 @@ const isOptions = (v: unknown): v is ReportOptions => {
     typeof o.hideZero === 'boolean' &&
     Array.isArray(o.levels) &&
     o.levels.every((l) => typeof l === 'string') &&
-    (o.lineFringes === 'rolled-up' || o.lineFringes === 'per-line') &&
+    (o.fringeDetail === undefined || typeof o.fringeDetail === 'boolean') &&
     (o.order === undefined || (Array.isArray(o.order) && o.order.every((r) => typeof r === 'string')))
   );
 };
 
 export function useReportOptions() {
-  const [options, setOptions] = usePref<ReportOptions>('reportOptions', DEFAULT_REPORT_OPTIONS, isOptions);
+  const [saved, setOptions] = usePref<ReportOptions>('reportOptions', DEFAULT_REPORT_OPTIONS, isOptions);
   const [landscape, setLandscape] = usePref('reportLandscape', false, isBoolean);
+  // Options saved before "Show fringe detail" have none: they showed the detail.
+  const options = { ...saved, fringeDetail: saved.fringeDetail ?? true };
   return { options, setOptions, landscape, setLandscape };
 }
 

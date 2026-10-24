@@ -49,4 +49,7 @@ It's written to `apps/desktop/release/Fringe-Manual.pdf`, and each release build
 
 ## Releases
 
-See [RELEASING.md](RELEASING.md).
+Pushing a `v*` tag builds the installers for every platform on GitHub and attaches them to a
+release (`.github/workflows/release.yml`). The Mac app is signed and notarized when the repository
+has the `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and
+`APPLE_TEAM_ID` secrets; without them it gets an ad-hoc signature.

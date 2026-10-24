@@ -10,6 +10,7 @@ import {
   insertAccount,
   insertCategory,
   incentiveLabel,
+  levelOf,
   percentageLabel,
   topsheet,
 } from '@fringe/budget-engine';
@@ -203,29 +204,60 @@ export function BudgetWorkspace({ tab, dispatch }: Props) {
     );
   } else {
     const sheet = topsheet(budget, totals);
-    const rows: GridRow[] = sheet.rows.map((r) =>
-      r.kind === 'category'
+    const { posting } = budget.settings.fringes;
+    // Fringes posted to a level's or the budget's fringe row: each category shows its own greyed,
+    // with where they went, as accounts do; they're not in its total.
+    const postedRow = (c: Budget['categories'][number]): string | null => {
+      if (posting !== 'production-level' && posting !== 'budget') return null;
+      const level = posting === 'production-level' ? levelOf(c.number, budget.settings.coa.levels) : null;
+      return level ? `${level.name} Fringes` : 'Total Fringes';
+    };
+    const rows: GridRow[] = sheet.rows.map((r) => {
+      if (r.kind !== 'category') return otherRow(r);
+      const own = totals.categoryFringes.get(r.category.id);
+      const where = postedRow(r.category);
+      if (!where || !own || own.isZero()) {
+        return {
+          id: r.category.id,
+          cells: [r.category.number, r.category.description, ...totalsCells(r.totals)],
+          drillable: true,
+        };
+      }
+      return {
+        id: r.category.id,
+        cells: [
+          r.category.number,
+          r.category.description,
+          `${money(own.toFixed())} → ${where}`,
+          money(r.totals.total),
+        ],
+        cellClass: [undefined, undefined, 'cell-elsewhere', undefined],
+        cellTitle: [
+          undefined,
+          undefined,
+          `This category's fringes, posted to ${where}. Not in this category's total.`,
+          undefined,
+        ],
+        drillable: true,
+      };
+    });
+    function otherRow(r: Exclude<(typeof sheet.rows)[number], { kind: 'category' }>): GridRow {
+      return r.kind === 'fringes'
         ? {
-            id: r.category.id,
-            cells: [r.category.number, r.category.description, ...totalsCells(r.totals)],
-            drillable: true,
+            id: `fringes:${r.level?.id ?? 'budget'}`,
+            cells: [
+              r.number,
+              r.level ? `${r.level.name} Fringes` : 'Total Fringes',
+              ...totalsCells(r.totals),
+            ],
+            total: true,
           }
-        : r.kind === 'fringes'
-          ? {
-              id: `fringes:${r.level?.id ?? 'budget'}`,
-              cells: [
-                r.number,
-                r.level ? `${r.level.name} Fringes` : 'Total Fringes',
-                ...totalsCells(r.totals),
-              ],
-              total: true,
-            }
-          : {
-              id: `level:${r.level.id}`,
-              cells: ['', `Total ${r.level.name}`, ...totalsCells(r.totals)],
-              total: true,
-            },
-    );
+        : {
+            id: `level:${r.level.id}`,
+            cells: ['', `Total ${r.level.name}`, ...totalsCells(r.totals)],
+            total: true,
+          };
+    }
     if (sheet.percentages.length > 0) {
       rows.push(
         {

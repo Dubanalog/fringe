@@ -36,9 +36,9 @@ type Item =
   | { kind: 'assistant'; parts: Part[]; error: string | null; stopped: boolean };
 
 const SUGGESTIONS = [
+  'Help me build this budget',
   'Give me a quick overview of this budget',
-  'Check this budget against the import report',
-  'Which accounts have fringes that look wrong?',
+  "What's missing or looks off in this budget?",
   'Read the files I added and tell me what applies',
 ];
 

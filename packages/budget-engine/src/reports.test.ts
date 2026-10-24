@@ -70,7 +70,7 @@ const budget: Budget = {
   ],
 };
 
-const all = { hideZero: false, levels: [], lineFringes: 'rolled-up' as const };
+const all = { hideZero: false, levels: [], fringeDetail: true };
 
 describe('reports', () => {
   it('builds the topsheet with the budget title', () => {
@@ -88,12 +88,45 @@ describe('reports', () => {
     const text = table.rows.map((r) =>
       r.cells.map((c, i) => cellText(c, table.columns[i]!, 'cents')).join('|'),
     );
-    expect(text).toContain('|FICA 10%|||||150.00|');
+    expect(text).toContain('|FICA 10% of 1,500.00 (1 person at the 1,500.00 cutoff)|||||150.00|');
     expect(text).toContain('|Total 1101||||||2,150.00');
     expect(text).toContain('1102|Nobody||||||');
     const hidden = buildReports(budget, { ...all, hideZero: true, reports: ['detail'] });
     const rows = (hidden.sections[0]!.blocks[0] as { rows: { cells: unknown[] }[] }).rows;
     expect(rows.some((r) => r.cells[0] === '1102')).toBe(false);
+  });
+
+  const textOf = (b: Budget, report: 'summary' | 'detail', fringeDetail = true) => {
+    const table = buildReports(b, { ...all, fringeDetail, reports: [report] }).sections[0]!.blocks[0]!;
+    if (table.kind !== 'table') throw new Error('table');
+    return table.rows.map((r) => r.cells.map((c, i) => cellText(c, table.columns[i]!, 'cents')).join('|'));
+  };
+  const posting = (p: 'production-level' | 'budget'): Budget => ({
+    ...budget,
+    settings: { ...budget.settings, fringes: { ...budget.settings.fringes, posting: p } },
+  });
+
+  it('shows one Fringes line instead, without the detail', () => {
+    const text = textOf(budget, 'detail', false);
+    expect(text).toContain('|Fringes|||||150.00|');
+    expect(text.some((r) => r.includes('FICA'))).toBe(false);
+    expect(textOf(posting('production-level'), 'detail', false)).toContain(
+      '|Above-The-Line Fringes||||||150.00',
+    );
+  });
+
+  it('shows fringes posted to the topsheet in the summary and detail, so they add up', () => {
+    for (const p of ['production-level', 'budget'] as const) {
+      const name = p === 'budget' ? 'Total Fringes' : 'Above-The-Line Fringes';
+      const summary = textOf(posting(p), 'summary');
+      expect(summary).toContain(`|${name}|150.00|150.00`);
+      expect(summary.at(-1)).toBe('|Total||2,150.00');
+      const detail = textOf(posting(p), 'detail');
+      expect(detail).toContain(`|${name}||||||`);
+      expect(detail).toContain('|FICA 10% of 1,500.00 (1 person at the 1,500.00 cutoff)|||||150.00|');
+      expect(detail).toContain(`|Total ${name.replace(/^Total /, '')}||||||150.00`);
+      expect(detail.at(-1)).toBe('|Total||||||2,150.00');
+    }
   });
 
   it('adds up fringes over the cutoff, and sets', () => {

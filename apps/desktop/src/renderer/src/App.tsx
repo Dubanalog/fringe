@@ -364,7 +364,7 @@ export function App() {
   const [chatSeed, setChatSeed] = useState<ChatSeed | null>(null);
   /** Opens the AI panel with `text` ready for the user to send. */
   const askClaude = (text: string) => {
-    setChatSeed({ id: Date.now(), text, files: [] });
+    setChatSeed({ id: seedId(), text, files: [] });
     setPanelOpen(true);
   };
   const convertBudget = async (dropped?: string) => {
@@ -376,7 +376,7 @@ export function App() {
     if (!project) return;
     const files = await window.fringe.addBudgetFilePaths(project, [file]);
     setChatSeed({
-      id: Date.now(),
+      id: seedId(),
       text: `Please convert the budget in ${fileName} into this one. It was made in another program. Check the totals against the file and tell me what you couldn't settle.`,
       files,
     });
@@ -397,20 +397,32 @@ export function App() {
 
   const openProject = useCallback(async () => opened(await window.fringe.openProject()), [opened]);
 
-  // Anything dropped on the window (outside the AI panel, which keeps files for the budget): a
-  // project folder or .fringe file opens; any other file is a budget from another program to convert.
+  // Anything dropped on the window (outside the AI panel and Knowledge, which keep files for the
+  // budget): a project folder or .fringe file opens. Any other file goes in the open budget's
+  // Knowledge; with no budget open, it's a budget from another program to convert.
   const [dropping, setDropping] = useState(false);
   const isFileDrag = (e: DragEvent) => [...e.dataTransfer.types].includes('Files');
   const dropOnWindow = async (e: DragEvent) => {
     e.preventDefault();
     setDropping(false);
     const paths = [...e.dataTransfer.files].map((f) => window.fringe.pathForFile(f)).filter(Boolean);
+    const project = active?.project;
+    const kept: string[] = [];
     for (const path of paths) {
       const result = await window.fringe.openDropped(path);
-      if ('convert' in result) await convertBudget(result.convert);
-      else if (!result.ok)
+      if ('convert' in result) {
+        if (project) kept.push(result.convert);
+        else await convertBudget(result.convert);
+      } else if (!result.ok)
         setNotice({ text: `Couldn't open ${fileNameOf(path)}: ${result.error}`, error: true });
       else opened(result);
+    }
+    if (project && kept.length > 0) {
+      const added = await window.fringe.addBudgetFilePaths(project, kept);
+      setNotice({
+        text: `Added ${added.length === 1 ? fileNameOf(kept[0]!) : `${added.length} files`} to this budget's Knowledge.`,
+        error: false,
+      });
     }
   };
 
@@ -534,11 +546,22 @@ export function App() {
     >
       {dropping && (
         <div className="drop-overlay" aria-hidden="true">
-          <strong>Drop a budget to open it</strong>
-          <span>
-            A Fringe project or .fringe file opens. A budget from another program (PDF, Excel, CSV, XML…) is
-            converted by the AI.
-          </span>
+          {active?.project ? (
+            <>
+              <strong>Drop files to add them to this budget</strong>
+              <span>
+                They go in its Knowledge, for the AI to read. A Fringe project or .fringe file opens instead.
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>Drop a budget to open it</strong>
+              <span>
+                A Fringe project or .fringe file opens. A budget from another program (PDF, Excel, CSV, XML…)
+                is converted by the AI.
+              </span>
+            </>
+          )}
         </div>
       )}
       <header className="titlebar">
@@ -925,6 +948,9 @@ function StartView({
     </section>
   );
 }
+
+/** A new id for a message waiting in the AI panel (only ever made in event handlers). */
+const seedId = () => Date.now();
 
 /** When a recent project was last opened: "Today", "Yesterday", or a date. */
 function openedWhen(iso: string): string {

@@ -69,8 +69,7 @@ The Windows installer isn't signed yet: if SmartScreen warns, click **More info 
 
 ## Contributing
 
-Developers: see [DEVELOPMENT.md](docs/DEVELOPMENT.md) to build and run Fringe, and
-[RELEASING.md](docs/RELEASING.md) for how installers are made.
+Developers: see [DEVELOPMENT.md](docs/DEVELOPMENT.md) to build and run Fringe.
 
 ## License
 

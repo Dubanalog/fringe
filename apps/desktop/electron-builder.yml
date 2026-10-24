@@ -28,7 +28,7 @@ mac:
   target: [dmg, zip]
   category: public.app-category.finance
   # Signed with the Developer ID certificate in CSC_LINK and notarized with APPLE_ID,
-  # APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID (see docs/RELEASING.md). Without them the
+  # APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID (see docs/DEVELOPMENT.md). Without them the
   # workflow falls back to an ad-hoc signature, which Apple Silicon needs to launch the app at all.
   hardenedRuntime: true
   gatekeeperAssess: false

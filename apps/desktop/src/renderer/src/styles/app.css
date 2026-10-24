@@ -733,6 +733,11 @@ h3 {
   font: inherit;
   cursor: pointer;
 }
+.knowledge-view.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+
 .ai-drop {
   position: absolute;
   inset: 8px;

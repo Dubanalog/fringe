@@ -4,6 +4,7 @@ import { crewList } from './crew';
 import { lineCurrency } from './currency';
 import { formatMoney, formatRate } from './format';
 import { resolveGlobals } from './formula';
+import { breakdownTotal, breakdownWords, fringeBreakdown, fringeSourceAccounts } from './fringe-breakdown';
 import { accountFringes, fringePools, poolBase, unitCount } from './fringes';
 import {
   type Account,
@@ -77,8 +78,11 @@ export interface ReportOptions {
   hideZero: boolean;
   /** Production level ids whose categories go in the Account Summary and Detail; empty for all. */
   levels: string[];
-  /** Detail: each line's fringes in a column, or added up by fringe under each account's lines. */
-  lineFringes: 'rolled-up' | 'per-line';
+  /**
+   * Detail: each fringe with its rate and what it applies to, wherever fringes land (an account, a
+   * category's fringe account, a production level or the budget); or just one Fringes line there.
+   */
+  fringeDetail: boolean;
   /** The order the reports print in; reports it leaves out follow in their usual order. */
   order?: ReportId[];
 }
@@ -97,7 +101,7 @@ export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
   reports: ['topsheet', 'summary', 'detail'],
   hideZero: false,
   levels: [],
-  lineFringes: 'rolled-up',
+  fringeDetail: true,
 };
 
 /** How a cell's value reads: money and numbers are decimal strings, a percent is "7.65" for 7.65%. */
@@ -331,21 +335,72 @@ function chosenCategories({ budget, options }: Context): Category[] {
   });
 }
 
+/**
+ * Fringes posted to the topsheet ('production-level' or 'budget' posting), as the topsheet shows
+ * them: each fringe row with the chosen categories it covers, keyed by the last of those categories
+ * so the reports can print it right after them.
+ */
+function topsheetFringes(ctx: Context, categories: readonly Category[]) {
+  const { budget, totals } = ctx;
+  const { posting, levelAccounts, budgetAccount } = budget.settings.fringes;
+  const groups: { number: string; name: string; categories: Category[]; amount: Decimal }[] = [];
+  if (posting === 'budget' && categories.length > 0) {
+    groups.push({
+      number: budgetAccount,
+      name: 'Total Fringes',
+      categories: [...categories],
+      amount: toDecimal(0),
+    });
+  } else if (posting === 'production-level') {
+    const levels = sortedLevels(budget.settings.coa.levels);
+    const byLevel = new Map<string, Category[]>();
+    for (const c of categories) {
+      const id = levelOf(c.number, levels)?.id ?? '';
+      byLevel.set(id, [...(byLevel.get(id) ?? []), c]);
+    }
+    for (const [id, cs] of byLevel) {
+      const level = levels.find((l) => l.id === id);
+      groups.push({
+        number: level ? (levelAccounts[level.id] ?? '') : '',
+        name: level ? `${level.name} Fringes` : 'Total Fringes',
+        categories: cs,
+        amount: toDecimal(0),
+      });
+    }
+  }
+  const after = new Map<string, typeof groups>();
+  for (const g of groups) {
+    g.amount = sum(g.categories.map((c) => totals.categoryFringes.get(c.id) ?? '0'));
+    const last = g.categories.at(-1)!.id;
+    after.set(last, [...(after.get(last) ?? []), g]);
+  }
+  return after;
+}
+
 function summaryReport(ctx: Context): ReportBlock[] {
   const { totals, options } = ctx;
   const rows: ReportRow[] = [];
   let shown = toDecimal(0);
-  for (const c of chosenCategories(ctx)) {
+  const categories = chosenCategories(ctx);
+  const posted = topsheetFringes(ctx, categories);
+  for (const c of categories) {
     const ct = totals.categories.get(c.id);
-    if (!ct || (options.hideZero && isZero(ct.total))) continue;
-    rows.push(row([c.number, c.description, null, null], 'heading'));
-    for (const a of c.accounts) {
-      const at = totals.accounts.get(a.id);
-      if (!at || (options.hideZero && isZero(at.total))) continue;
-      rows.push(row([a.number, a.description, at.fringe, at.total]));
+    if (ct && !(options.hideZero && isZero(ct.total))) {
+      rows.push(row([c.number, c.description, null, null], 'heading'));
+      for (const a of c.accounts) {
+        const at = totals.accounts.get(a.id);
+        if (!at || (options.hideZero && isZero(at.total))) continue;
+        rows.push(row([a.number, a.description, at.fringe, at.total]));
+      }
+      rows.push(row(['', `Total ${c.number} ${c.description}`.trim(), ct.fringe, ct.total], 'subtotal'));
+      shown = shown.plus(toDecimal(ct.total));
     }
-    rows.push(row(['', `Total ${c.number} ${c.description}`.trim(), ct.fringe, ct.total], 'subtotal'));
-    shown = shown.plus(toDecimal(ct.total));
+    // Fringes posted to the topsheet follow their level's (or the budget's) last category.
+    for (const g of posted.get(c.id) ?? []) {
+      if (options.hideZero && g.amount.isZero()) continue;
+      rows.push(row([g.number, g.name, fixed(g.amount), fixed(g.amount)], 'subtotal'));
+      shown = shown.plus(g.amount);
+    }
   }
   if (rows.length === 0) return [];
   rows.push(row(['', 'Total', null, fixed(shown)], 'total'));
@@ -368,9 +423,7 @@ const blankLine = (d: DetailLine) => !d.description.trim() && isZero(d.subtotal 
 
 function detailReport(ctx: Context): ReportBlock[] {
   const { budget, totals, options } = ctx;
-  const perLine = options.lineFringes === 'per-line';
-  const { rounding, fringeDefs } = budget.settings;
-  const defs = new Map(fringeDefs.map((f) => [f.name, f]));
+  const money = (v: string) => formatMoney(v, budget.settings.displayPrecision);
   const columns: ReportColumn[] = [
     { label: 'Acct', kind: 'text' },
     { label: 'Description', kind: 'text' },
@@ -379,7 +432,6 @@ function detailReport(ctx: Context): ReportBlock[] {
     { label: 'X', kind: 'number' },
     { label: 'Rate', kind: 'rate' },
     { label: 'Subtotal', kind: 'money' },
-    ...(perLine ? [{ label: 'Fringes', kind: 'money' as const }] : []),
     { label: 'Total', kind: 'money' },
   ];
   /** A row with the description in column 2 and figures placed by column label. */
@@ -389,26 +441,52 @@ function detailReport(ctx: Context): ReportBlock[] {
     cells[1] = description;
     return row(cells, style);
   };
+  /** How the fringes from `sources`' lines add up: each with its rate and what it applies to. */
+  const breakdownRows = (sources: readonly Account[]) => {
+    const breakdown = fringeBreakdown(budget, totals, sources).filter((r) => !isZero(r.amount));
+    const lines = breakdown.map((r) => {
+      const w = breakdownWords(r, money);
+      const of = w.appliesTo ? ` of ${w.appliesTo}` : '';
+      const text = `${r.name} ${w.rate}${of}${w.cutoff ? ` (${w.cutoff})` : ''}`.replace(/\s+/g, ' ').trim();
+      return at(text, { Subtotal: r.amount }, 'note');
+    });
+    return { lines, total: breakdown.length > 0 ? breakdownTotal(breakdown) : null };
+  };
   const rows: ReportRow[] = [];
   let shown = toDecimal(0);
-  for (const c of chosenCategories(ctx)) {
+  const categories = chosenCategories(ctx);
+  const posted = topsheetFringes(ctx, categories);
+  const toTopsheet = fringeSourceAccounts(budget, totals, '');
+  for (const c of categories) {
+    // Fringes posted to the topsheet follow their level's (or the budget's) last category.
+    const after = () => {
+      for (const g of posted.get(c.id) ?? []) {
+        if (options.hideZero && g.amount.isZero()) continue;
+        if (!options.fringeDetail) {
+          rows.push(at(g.name, { Total: fixed(g.amount) }, 'total', g.number));
+        } else {
+          rows.push(at(g.name, {}, 'heading', g.number));
+          const inGroup = new Set(g.categories.flatMap((x) => x.accounts));
+          rows.push(...breakdownRows(toTopsheet.filter((a) => inGroup.has(a))).lines);
+          const label = g.name.startsWith('Total ') ? g.name : `Total ${g.name}`;
+          rows.push(at(label, { Total: fixed(g.amount) }, 'total'));
+        }
+        shown = shown.plus(g.amount);
+      }
+    };
     const ct = totals.categories.get(c.id);
-    if (!ct || (options.hideZero && isZero(ct.total))) continue;
+    if (!ct || (options.hideZero && isZero(ct.total))) {
+      after();
+      continue;
+    }
     rows.push(at(c.description, {}, 'heading', c.number));
     for (const a of c.accounts) {
       const accountTotal = totals.accounts.get(a.id);
       if (!accountTotal || (options.hideZero && isZero(accountTotal.total) && a.details.every(blankLine)))
         continue;
       rows.push(at(a.description, {}, 'heading', a.number));
-      const fringes = accountFringes(a, budget.settings);
-      const byFringe = new Map<string, Decimal>();
       for (const d of a.details) {
         if (options.hideZero && isZero(d.subtotal || '0')) continue;
-        const values = fringes.get(d.id) ?? new Map<string, Decimal | null>();
-        for (const [name, v] of values) {
-          if (v !== null)
-            byFringe.set(name, (byFringe.get(name) ?? toDecimal(0)).plus(applyRounding(v, rounding)));
-        }
         const line = totals.lines.get(d.id);
         // A line in another currency shows its own figures, then its subtotal converted.
         const foreign = lineCurrency(d, budget.settings);
@@ -423,7 +501,6 @@ function detailReport(ctx: Context): ReportBlock[] {
               X: d.x && !toDecimal(d.x).equals(1) ? d.x : null,
               Rate: d.rate || null,
               Subtotal: foreign ? (line ? fixed(line.subtotal) : null) : d.subtotal || null,
-              Fringes: perLine && line && !line.fringe.isZero() ? fixed(line.fringe) : null,
             },
             'normal',
           ),
@@ -432,33 +509,19 @@ function detailReport(ctx: Context): ReportBlock[] {
       const own = totals.lines;
       const lineSum = sum(a.details.map((d) => own.get(d.id)?.subtotal ?? toDecimal(0)));
       const fringeSum = sum(a.details.map((d) => own.get(d.id)?.fringe ?? toDecimal(0)));
-      if (!fringeSum.isZero()) {
-        if (perLine) {
-          rows.push(
-            at('Lines and fringes', { Subtotal: fixed(lineSum), Fringes: fixed(fringeSum) }, 'subtotal'),
-          );
-        } else {
-          for (const [name, amount] of byFringe) {
-            if (amount.isZero()) continue;
-            const def = defs.get(name);
-            rows.push(
-              at(
-                def
-                  ? `${name} ${def.kind === 'percent' ? `${def.rate}%` : `${formatRate(def.rate)}/${def.unit}`}`
-                  : name,
-                { Subtotal: fixed(amount) },
-                'note',
-              ),
-            );
-          }
-          rows.push(at('Total Fringes', { Subtotal: fixed(fringeSum) }, 'subtotal'));
-        }
+      // The fringes that land on this account, from its own lines or (on a fringe account like
+      // 1199) the whole category's: each one, or just what they come to.
+      const { lines, total } = breakdownRows(fringeSourceAccounts(budget, totals, a.id));
+      if (total !== null) {
+        if (options.fringeDetail) rows.push(...lines);
+        rows.push(at(options.fringeDetail ? 'Total Fringes' : 'Fringes', { Subtotal: total }, 'subtotal'));
       }
       const note = postingNote(budget, a, fringeSum, toDecimal(accountTotal.total).minus(lineSum));
       rows.push(at(`Total ${a.number}${note ? ` (${note})` : ''}`, { Total: accountTotal.total }, 'total'));
     }
     rows.push(at(`Total ${c.number} ${c.description}`.trim(), { Total: ct.total }, 'subtotal'));
     shown = shown.plus(toDecimal(ct.total));
+    after();
   }
   if (rows.length === 0) return [];
   rows.push(at('Total', { Total: fixed(shown) }, 'grand'));

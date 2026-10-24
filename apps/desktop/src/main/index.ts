@@ -87,10 +87,8 @@ const repoUrl = 'https://github.com/Dubanalog/fringe';
 
 // Everything happens in the window, so the menu bar is only File > Exit and Help, whose links open
 // in the user's browser. The Mac keeps its app, Edit and Window menus: there, copy and paste in
-// text boxes go through the Edit menu, and About is in the app menu. Development keeps Electron's
-// full menu, for reload and the developer tools.
+// text boxes go through the Edit menu, and About is in the app menu.
 function setMenu(): void {
-  if (isDev) return;
   const mac = process.platform === 'darwin';
   app.setAboutPanelOptions({
     applicationName: 'Fringe',

@@ -36,6 +36,34 @@ function apiError(status: number, body: string): ApiError {
   return new ApiError(message || `OpenAI couldn't answer (${status}).`);
 }
 
+/**
+ * An error OpenAI sent mid-reply, in its own words: the message sits on the event, under `error`, or
+ * under `response.error` (or `response.incomplete_details` when it stopped short).
+ */
+function streamError(ev: Record<string, unknown>): ApiError {
+  console.error('OpenAI stream error:', JSON.stringify(ev).slice(0, 2000));
+  const response = ev['response'] as Record<string, unknown> | undefined;
+  const found = [ev['error'], response?.['error'], ev].find(
+    (e): e is { message?: unknown; code?: unknown } => !!e && typeof e === 'object' && 'message' in e,
+  );
+  const message = String(found?.message ?? '').trim();
+  const code = String(found?.code ?? '').trim();
+  const reason = (response?.['incomplete_details'] as { reason?: unknown } | undefined)?.reason;
+  if (/quota|billing|credit/i.test(`${message} ${code}`)) {
+    return new ApiError(
+      'Your OpenAI account is out of credit. Add credit at platform.openai.com, then try again.',
+    );
+  }
+  if (/verif/i.test(message)) {
+    return new ApiError(
+      `${message} Verify your organization at platform.openai.com (Settings › Organization › General), or pick a smaller model in AI settings.`,
+    );
+  }
+  if (message) return new ApiError(code ? `${message} (${code})` : message);
+  if (reason) return new ApiError(`OpenAI stopped before finishing (${String(reason)}).`);
+  return new ApiError(`OpenAI stopped with an error${code ? ` (${code})` : ''}.`);
+}
+
 /** What goes back to OpenAI from its own output: reasoning as it came, the rest without ids. */
 function asInput(item: Item): Item | null {
   if (item.type === 'reasoning') return item;
@@ -91,12 +119,9 @@ function conversation(): Conversation {
           output[Number(ev['output_index'] ?? output.length)] = ev['item'] as Item;
           break;
         case 'response.failed':
-        case 'error': {
-          const err = (ev['response'] as { error?: { message?: string } } | undefined)?.error ?? ev;
-          throw new ApiError(
-            String((err as { message?: unknown }).message ?? '') || 'OpenAI stopped with an error.',
-          );
-        }
+        case 'response.incomplete':
+        case 'error':
+          throw streamError(ev);
       }
     });
     const items = output.filter(Boolean);

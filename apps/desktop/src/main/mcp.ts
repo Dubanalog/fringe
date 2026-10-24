@@ -38,7 +38,9 @@ const PORT = 47615;
 const PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 1_000_000;
 
-const INSTRUCTIONS = `You are working on film/TV budgets in the Fringe app.
+const INSTRUCTIONS = `You are working on film/TV budgets in the Fringe app. Work as an experienced
+production accountant would: rates and fringes come from the user's files first; say when a figure is
+your estimate and list estimates in the budget's assumptions; point out what's missing or looks off.
 Tools work on the budget showing in the app unless you name another (list_budgets lists them, with
 the user's instructions for all budgets); only budgets open in the app can be changed.
 Read before you change: knowledge/instructions.md (list_budget_files), get_budget_summary, then

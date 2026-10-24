@@ -116,33 +116,32 @@ function conversation(): Conversation {
   return {
     addUser: (text) => contents.push({ role: 'user', parts: [{ text }] }),
     reply,
+    // A tool's file (a PDF, a picture) goes after the replies as a part of its own, which every
+    // Gemini model reads; files inside a function response, matched by name, aren't dependable.
     addResults: (results: ToolResult[]) =>
       contents.push({
         role: 'user',
-        parts: results.map((r) => ({
-          functionResponse: {
-            ...(r.call.id.startsWith('call-') ? {} : { id: r.call.id }),
-            name: r.call.name,
-            response: r.media
-              ? { result: r.text, file: { $ref: r.media.name } }
-              : r.isError
+        parts: [
+          ...results.map((r) => ({
+            functionResponse: {
+              ...(r.call.id.startsWith('call-') ? {} : { id: r.call.id }),
+              name: r.call.name,
+              response: r.isError
                 ? { error: r.text }
-                : { result: r.text },
-            ...(r.media
-              ? {
-                  parts: [
-                    {
-                      inlineData: {
-                        mimeType: r.media.mimeType,
-                        data: r.media.data,
-                        displayName: r.media.name,
-                      },
-                    },
-                  ],
-                }
-              : {}),
-          },
-        })),
+                : {
+                    result: r.media ? `${r.text}\n(${r.media.name} is attached after this.)` : r.text,
+                  },
+            },
+          })),
+          ...results.flatMap((r) =>
+            r.media
+              ? [
+                  { text: `${r.media.name}:` },
+                  { inlineData: { mimeType: r.media.mimeType, data: r.media.data } },
+                ]
+              : [],
+          ),
+        ],
       }),
     length: () => contents.length,
     truncate: (n) => {

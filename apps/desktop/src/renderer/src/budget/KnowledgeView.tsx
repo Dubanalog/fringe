@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { type DragEvent, useCallback, useEffect, useState } from 'react';
 import type { BudgetFile } from '../../../shared/ipc';
 
 function size(bytes: number): string {
@@ -35,13 +35,38 @@ export function KnowledgeView({ project }: { project: string }) {
     if (added.length > 0) await load();
   };
 
+  // Files dropped here are added, not opened by the window.
+  const [dragging, setDragging] = useState(false);
+  const drop = async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const paths = [...e.dataTransfer.files].map((f) => window.fringe.pathForFile(f)).filter(Boolean);
+    if (paths.length === 0) return;
+    await window.fringe.addBudgetFilePaths(project, paths);
+    await load();
+  };
+
   return (
-    <section className="view view-scroll knowledge-view">
+    <section
+      className={`view view-scroll knowledge-view${dragging ? ' dragging' : ''}`}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes('Files')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => void drop(e)}
+    >
       <h1>Knowledge</h1>
       <p className="muted">
         Files the AI reads when you ask it about this budget: rate sheets, deal memos, union rules, notes. Put
-        standing instructions for the AI in a file called <strong>instructions.md</strong>. You can also drop
-        files on the AI panel. Instructions for all budgets go in one file kept with all your budgets.
+        standing instructions for the AI in a file called <strong>instructions.md</strong>. Drop files here or
+        on the AI panel to add them. Instructions for all budgets go in one file kept with all your budgets.
       </p>
       <div className="actions actions-left">
         <button type="button" className="btn btn-primary" onClick={() => void add()}>

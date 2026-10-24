@@ -12,7 +12,10 @@ import {
   CODE_FIELDS,
   accountFringes,
   applyTextEdit,
+  breakdownTotal,
+  breakdownWords,
   budgetTags,
+  calculateTotals,
   categoryFringeAccount,
   codeList,
   convertedSubtotal,
@@ -20,6 +23,8 @@ import {
   deleteRow,
   fringeTotal,
   formatRate,
+  fringeBreakdown,
+  fringeSourceAccounts,
   insertDetail,
   pasteLines,
   lineCurrency,
@@ -33,7 +38,7 @@ import {
   toDecimal,
   updateSettings,
 } from '@fringe/budget-engine';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ColorPick } from './ColorPick';
 import { ContextMenu } from './ContextMenu';
 import { moveColumn, orderedColumns } from './columnLayout';
@@ -411,6 +416,7 @@ export function AccountLines({ budget, account, totals, money, selection, onSele
           }}
           onDelete={(row) => update(deleteRow(budget, 'detail', row))}
         />
+        <FringeBreakdown budget={budget} account={account} money={money} />
         {account.postedFringes.length > 0 && (
           <>
             <h3>Fringes posted here</h3>
@@ -487,6 +493,67 @@ interface PaneProps {
  * The pane under the grid for the selected line(s): every fringe and group in the budget with a
  * box ticked for those applied (to all selected lines, or some), and the fringe range.
  */
+
+/**
+ * How the account's Fringes add up, read-only: each fringe's rate, what it applies to and any
+ * cutoff, summed over every line posting here (on a fringe account like 1199, the category's).
+ */
+function FringeBreakdown({
+  budget,
+  account,
+  money,
+}: {
+  budget: Budget;
+  account: Account;
+  money(v: string): string;
+}) {
+  const { rows, from } = useMemo(() => {
+    const totals = calculateTotals(budget);
+    const sources = fringeSourceAccounts(budget, totals, account.id);
+    return {
+      rows: fringeBreakdown(budget, totals, sources).filter((r) => !toDecimal(r.amount).isZero()),
+      from: sources.filter((a) => a.id !== account.id && a.details.length > 0).map((a) => a.number),
+    };
+  }, [budget, account.id]);
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <h3>Fringes{from.length > 0 ? ` from ${from.join(', ')}` : ''}</h3>
+      <table className="grid browser-grid fringe-breakdown" aria-label="Fringe breakdown">
+        <thead>
+          <tr>
+            <th>Fringe</th>
+            <th className="num">Rate</th>
+            <th className="num">Applies to</th>
+            <th>Cutoff</th>
+            <th className="num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const w = breakdownWords(r, money);
+            return (
+              <tr key={r.name}>
+                <td>{r.name}</td>
+                <td className="num">{w.rate}</td>
+                <td className="num">{w.appliesTo}</td>
+                <td>{w.cutoff}</td>
+                <td className="num">{money(r.amount)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={4}>Total Fringes</td>
+            <td className="num">{money(breakdownTotal(rows))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </>
+  );
+}
+
 function LinePane({ budget, account, lines, money, update }: PaneProps) {
   const tags = budgetTags(budget);
   const summary = summarizeLines(lines);

@@ -10,7 +10,7 @@ import {
   resolveGlobals,
 } from './formula';
 import { type Decimal, applyRounding, sum, toDecimal } from './money';
-import { categoryFringeAccount } from './numbering';
+import { categoryFringeAccount, digitsOf, fitsPattern } from './numbering';
 import type {
   Account,
   Budget,
@@ -22,6 +22,7 @@ import type {
   GlobalDef,
   NumericDetailField,
 } from './model';
+import { newId } from './model';
 import type { Totals } from './topsheet';
 
 /**
@@ -496,4 +497,45 @@ function mapLines(budget: Budget, fn: (d: DetailLine) => DetailLine): Budget {
 
 function forLines(budget: Budget, fn: (d: DetailLine) => void): void {
   budget.categories.forEach((c) => c.accounts.forEach((a) => a.details.forEach(fn)));
+}
+
+/**
+ * Under 'category' posting, gives each category whose fringes have nowhere to go its fringe
+ * account (e.g. 1199 "Total Fringes"), in number order. A category is skipped when that number
+ * is taken elsewhere or doesn't fit the account numbers' pattern; it's left in `skipped`.
+ */
+export function addCategoryFringeAccounts(budget: Budget): {
+  budget: Budget;
+  added: string[];
+  skipped: string[];
+} {
+  const { posting, categoryAccountSuffix: suffix } = budget.settings.fringes;
+  if (posting !== 'category' || !suffix) return { budget, added: [], skipped: [] };
+  const unposted = new Set(calculateTotals(budget).unpostedCategories);
+  const taken = new Set(budget.categories.flatMap((c) => c.accounts.map((a) => digitsOf(a.number))));
+  const added: string[] = [];
+  const skipped: string[] = [];
+  const categories = budget.categories.map((c) => {
+    if (!unposted.has(c.number)) return c;
+    const number = c.number.slice(0, Math.max(0, c.number.length - suffix.length)) + suffix;
+    if (taken.has(digitsOf(number)) || !fitsPattern(number, budget.settings.coa.accountPattern)) {
+      skipped.push(c.number);
+      return c;
+    }
+    const account: Account = {
+      id: newId(),
+      number,
+      description: 'Total Fringes',
+      imported: null,
+      details: [],
+      postedFringes: [],
+      fringeRanges: [],
+    };
+    const at = c.accounts.findIndex((a) => Number(digitsOf(a.number)) > Number(digitsOf(number)));
+    const accounts = [...c.accounts];
+    accounts.splice(at < 0 ? accounts.length : at, 0, account);
+    added.push(number);
+    return { ...c, accounts };
+  });
+  return { budget: added.length > 0 ? { ...budget, categories } : budget, added, skipped };
 }

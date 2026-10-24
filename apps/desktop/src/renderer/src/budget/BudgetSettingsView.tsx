@@ -1,4 +1,5 @@
 import {
+  addCategoryFringeAccounts,
   type Budget,
   type BudgetSettings,
   type CodeField,
@@ -167,6 +168,14 @@ export function BudgetSettingsView({ budget, update }: Props) {
       window.alert(e.message);
       return false;
     }
+  };
+  // Posting to each category's fringe account: the ones that are missing are added with it.
+  const postToCategories = (b: Budget) => {
+    const { budget: next, added } = addCategoryFringeAccounts(b);
+    const label = added.length
+      ? `Added fringe account${added.length === 1 ? '' : 's'} ${added.join(', ')}`
+      : 'Post fringes to each category';
+    update(next, label);
   };
   const unposted = s.fringes.posting === 'category' ? calculateTotals(budget).unpostedCategories : [];
   const setLevel = (id: string, patch: Partial<ProductionLevel>) =>
@@ -558,7 +567,13 @@ export function BudgetSettingsView({ budget, update }: Props) {
                 key={o.value}
                 name="posting"
                 checked={s.fringes.posting === o.value}
-                onChange={() => setFringes({ posting: o.value })}
+                onChange={() =>
+                  o.value === 'category'
+                    ? postToCategories(
+                        updateSettings(budget, { ...s, fringes: { ...s.fringes, posting: 'category' } }),
+                      )
+                    : setFringes({ posting: o.value })
+                }
                 label={o.label}
                 help={o.help}
               />
@@ -581,7 +596,10 @@ export function BudgetSettingsView({ budget, update }: Props) {
                   {unposted.length === 1 ? 'Category' : 'Categories'} {unposted.join(', ')}{' '}
                   {unposted.length === 1 ? 'has' : 'have'} fringes but no account ending in{' '}
                   {s.fringes.categoryAccountSuffix}, so {unposted.length === 1 ? 'its' : 'their'} fringes stay
-                  on each account.
+                  on each account.{' '}
+                  <button type="button" className="btn btn-small" onClick={() => postToCategories(budget)}>
+                    Add {unposted.length === 1 ? 'the Account' : 'the Accounts'}
+                  </button>
                 </span>
               )}
             </label>

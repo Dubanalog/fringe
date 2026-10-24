@@ -214,15 +214,15 @@ export function ReportsView({
           <label className="check">
             <input
               type="checkbox"
-              checked={options.lineFringes === 'per-line'}
-              onChange={(e) => set({ lineFringes: e.target.checked ? 'per-line' : 'rolled-up' })}
+              checked={options.fringeDetail}
+              onChange={(e) => set({ fringeDetail: e.target.checked })}
             />
-            <span>Detail: fringes on each line</span>
+            <span>Show fringe detail</span>
           </label>
           <p className="muted small">
-            {options.lineFringes === 'per-line'
-              ? 'Each line shows its fringes in a column.'
-              : 'Fringes are added up under each account’s lines, one row per fringe.'}
+            {options.fringeDetail
+              ? 'Wherever fringes land, the Detail shows each one: its rate and what it applies to.'
+              : 'Wherever fringes land, the Detail shows one Fringes line.'}
           </p>
           <label className="check">
             <input type="checkbox" checked={landscape} onChange={(e) => setLandscape(e.target.checked)} />

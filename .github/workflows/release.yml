@@ -56,7 +56,7 @@ jobs:
         run: |
           npx electron-vite build
           extra=()
-          # macOS: sign and notarize when the Apple secrets are set (docs/RELEASING.md),
+          # macOS: sign and notarize when the Apple secrets are set (docs/DEVELOPMENT.md),
           # otherwise an ad-hoc signature so the app still opens on Apple Silicon.
           if [ "$RUNNER_OS" = macOS ] && [ -z "$CSC_LINK" ]; then
             echo "::warning::No Apple certificate in secrets; building an unsigned (ad-hoc) Mac app."

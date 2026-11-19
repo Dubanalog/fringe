@@ -53,3 +53,7 @@ Pushing a `v*` tag builds the installers for every platform on GitHub and attach
 release (`.github/workflows/release.yml`). The Mac app is signed and notarized when the repository
 has the `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and
 `APPLE_TEAM_ID` secrets; without them it gets an ad-hoc signature.
+
+The release starts as a draft and is built from whichever platforms succeeded, so check its files
+before publishing. If one platform failed (GitHub sometimes runs out of Mac runners), rerun that job
+from the Actions tab later and add its files to the release.

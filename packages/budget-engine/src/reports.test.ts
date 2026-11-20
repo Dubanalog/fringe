@@ -196,3 +196,49 @@ describe('tax incentives', () => {
     ]);
   });
 });
+
+describe('changes report', () => {
+  const withRate = (rate: string): Budget => ({
+    ...budget,
+    categories: budget.categories.map((c) => ({
+      ...c,
+      accounts: c.accounts.map((a) => ({
+        ...a,
+        details: a.details.map((d) => (d.id === 'l1' ? { ...d, rate, subtotal: rate } : d)),
+      })),
+    })),
+  });
+  const v1 = withRate('1000');
+  const v2 = withRate('400');
+  const now = withRate('2000');
+  const totalsOf = (doc: ReturnType<typeof buildReports>) => {
+    const table = doc.sections[0]!.blocks.find((b) => b.kind === 'table')!;
+    if (table.kind !== 'table') throw new Error('table');
+    const grand = table.rows.find((r) => r.cells[1] === 'Grand Total')!;
+    return { heading: table.heading, columns: table.columns.map((c) => c.label), grand: grand.cells.slice(2) };
+  };
+
+  it('compares a version with the budget now', () => {
+    const doc = buildReports(now, { ...all, reports: ['changes'] }, new Date(), {
+      compare: { label: 'v1.0', budget: v1 },
+    });
+    expect(totalsOf(doc)).toEqual({
+      heading: 'Totals since v1.0',
+      columns: ['Acct', 'Account', 'v1.0', 'Now', 'Difference'],
+      grand: ['2150', '3150', '1000'],
+    });
+  });
+
+  it('compares two versions, whatever the budget is now', () => {
+    const doc = buildReports(now, { ...all, reports: ['changes'] }, new Date(), {
+      compare: { label: 'v1.0', budget: v1, to: { label: 'v2.0', budget: v2 } },
+    });
+    expect(totalsOf(doc)).toEqual({
+      heading: 'Totals from v1.0 to v2.0',
+      columns: ['Acct', 'Account', 'v1.0', 'v2.0', 'Difference'],
+      grand: ['2150', '1540', '-610'],
+    });
+    const every = doc.sections[0]!.blocks.at(-1)!;
+    expect(every.kind === 'table' && every.heading).toBe('Every change from v1.0 to v2.0');
+  });
+});

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, extname, isAbsolute, join, resolve } from 'node:path';
 import icon from '../../build/icon.png?asset';
 import { ENGINE_VERSION } from '@fringe/budget-engine';
@@ -19,6 +19,7 @@ import {
 import {
   type AppInfo,
   type ExportProjectResult,
+  GLOBAL_KNOWLEDGE,
   IpcChannel,
   type NativeThemeSource,
   type McpStatus,
@@ -63,9 +64,24 @@ import {
   signInCode,
   stopChat,
 } from './chat';
-import { addKnowledgeFiles, budgetFilePath, isDocument, listBudgetFiles } from './knowledge';
+import {
+  GLOBAL_FOLDER,
+  addGlobalFiles,
+  addKnowledgeFiles,
+  budgetFilePath,
+  globalFilePath,
+  isDocument,
+  listBudgetFiles,
+  listGlobalFiles,
+} from './knowledge';
 import { FRINGE_EXTENSION } from './fringe-file';
-import { type WindowCaller, allInstructionsPath, routeBudgetTools, setOpenBudgets } from './ai-tools';
+import {
+  type WindowCaller,
+  allInstructionsPath,
+  routeBudgetTools,
+  setChatBudget,
+  setOpenBudgets,
+} from './ai-tools';
 import {
   closeProject,
   createProject,
@@ -235,8 +251,12 @@ function registerProjectIpc(): void {
   ipcMain.handle(IpcChannel.closeProject, (_event, path: unknown) => closeProject(path));
   ipcMain.handle(IpcChannel.recentProjects, () => recentProjects());
   ipcMain.handle(IpcChannel.forgetRecentProject, (_event, path: unknown) => forgetRecent(path));
-  ipcMain.handle(IpcChannel.revealProject, (_event, path: unknown) => {
-    if (isOpenProject(path)) shell.showItemInFolder(join(path, 'project.json'));
+  ipcMain.handle(IpcChannel.revealProject, async (_event, path: unknown) => {
+    if (path === GLOBAL_KNOWLEDGE) {
+      const dir = join(projectsRoot(), GLOBAL_FOLDER);
+      await mkdir(dir, { recursive: true });
+      await shell.openPath(dir);
+    } else if (isOpenProject(path)) shell.showItemInFolder(join(path, 'project.json'));
   });
 
   ipcMain.handle(
@@ -510,9 +530,10 @@ function registerAiIpc(): void {
   });
   ipcMain.handle(IpcChannel.terminalStop, () => stopTerminal());
 
-  ipcMain.handle(IpcChannel.chatSend, async (event, text: unknown) => {
+  ipcMain.handle(IpcChannel.chatSend, async (event, text: unknown, tab: unknown) => {
     if (typeof text !== 'string' || text.trim() === '') return { ok: false, error: 'Nothing to send.' };
     try {
+      setChatBudget(tab);
       await sendChat(event.sender, text, connectAi, callTool);
       return { ok: true };
     } catch (err) {
@@ -520,7 +541,10 @@ function registerAiIpc(): void {
     }
   });
   ipcMain.handle(IpcChannel.chatStop, () => stopChat());
-  ipcMain.handle(IpcChannel.chatNew, () => newChat());
+  ipcMain.handle(IpcChannel.chatNew, () => {
+    setChatBudget(null);
+    newChat();
+  });
   ipcMain.handle(IpcChannel.chatStatus, () => chatStatus());
   ipcMain.handle(IpcChannel.chatSignIn, (event) => signIn(event.sender));
   ipcMain.handle(IpcChannel.chatSignInCode, (_event, code: unknown) => {
@@ -544,29 +568,43 @@ function registerAiIpc(): void {
   ipcMain.handle(IpcChannel.openAllInstructions, async () => {
     await shell.openPath(await allInstructionsPath());
   });
+  // The knowledge file calls take an open project, or GLOBAL_KNOWLEDGE for the Global Knowledge folder.
+  const isKnowledge = (project: unknown): project is string =>
+    project === GLOBAL_KNOWLEDGE || isOpenProject(project);
+  const addTo = (project: string, files: readonly string[]) =>
+    project === GLOBAL_KNOWLEDGE ? addGlobalFiles(projectsRoot(), files) : addKnowledgeFiles(project, files);
   ipcMain.handle(IpcChannel.budgetFiles, (_event, project: unknown) =>
-    isOpenProject(project) ? listBudgetFiles(project) : [],
+    project === GLOBAL_KNOWLEDGE
+      ? listGlobalFiles(projectsRoot())
+      : isOpenProject(project)
+        ? listBudgetFiles(project)
+        : [],
   );
   ipcMain.handle(IpcChannel.addBudgetFiles, async (event, project: unknown) => {
-    if (!isOpenProject(project)) return [];
+    if (!isKnowledge(project)) return [];
     const win = BrowserWindow.fromWebContents(event.sender);
     const options: OpenDialogOptions = {
-      title: 'Add Files for This Budget',
+      title: project === GLOBAL_KNOWLEDGE ? 'Add Files for All Budgets' : 'Add Files for This Budget',
       properties: ['openFile', 'multiSelections'],
     };
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
-    return result.canceled ? [] : addKnowledgeFiles(project, result.filePaths);
+    return result.canceled ? [] : addTo(project, result.filePaths);
   });
   ipcMain.handle(IpcChannel.addBudgetFilePaths, async (_event, project: unknown, paths: unknown) => {
-    if (!isOpenProject(project) || !Array.isArray(paths)) return [];
+    if (!isKnowledge(project) || !Array.isArray(paths)) return [];
     const files: string[] = [];
     for (const p of paths) {
       if (typeof p === 'string' && p !== '' && (await stat(p).catch(() => null))?.isFile()) files.push(p);
     }
-    return addKnowledgeFiles(project, files);
+    return addTo(project, files);
   });
   ipcMain.handle(IpcChannel.openBudgetFile, async (_event, project: unknown, name: unknown) => {
-    const full = isOpenProject(project) ? budgetFilePath(project, name) : null;
+    const full =
+      project === GLOBAL_KNOWLEDGE
+        ? globalFilePath(projectsRoot(), name)
+        : isOpenProject(project)
+          ? budgetFilePath(project, name)
+          : null;
     if (!full) return;
     // Files can come inside a .fringe file from someone else, so only documents open; a program
     // (or a shortcut to one) is shown in its folder instead of being run.

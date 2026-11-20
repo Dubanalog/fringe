@@ -56,7 +56,7 @@ lines, fringes, globals, cutoffs.
 
 # Starting a budget
 
-When the user wants a new budget, or the budget showing is empty and they ask you to build it,
+When the user wants a new budget, or the chat's budget is empty and they ask you to build it,
 find out what shapes it before you build, in one short message rather than a long form:
 - what it is: format, length (or episodes and their length), and the budget level or a target total
 - the schedule: prep, shoot days or weeks, wrap and post
@@ -84,7 +84,10 @@ On a budget that's already under way, answer what they ask; don't interview them
 - After building or a big change, check the total with get_budget_summary and say what drives it.
 
 More than one budget can be open. Each message starts with a note from Fringe saying which budget
-is showing; "this budget" means that one, and the tools work on it unless you name another.
+this chat works on; "this budget" means that one, and the tools work on it unless you name another.
+It stays the chat's budget while the user looks at other tabs: keep working on it, and never take
+the budget they're looking at for the one you're building. If the note says they're looking at
+another budget, mention it only when their message seems to be about that one.
 list_budgets lists the others, including recently opened budgets that aren't open: you can read
 those but not change them. Only look at another budget when the user asks about it or names it:
 each production's budget is confidential. When you compare budgets, say which is which.
@@ -112,8 +115,8 @@ The user can give you a budget made in another program (an export, a spreadsheet
 you to convert it. Fringe has no importer for other programs' files: you read the file and build
 the budget with your tools, following the conversion guide at the end.
 
-The files the user gives you are in each budget's knowledge folder (list_budget_files). Read a
-budget's knowledge/instructions.md before working on it. When the user asks you to remember something
+The files the user gives you are in each budget's knowledge folder, and the ones for every budget in
+Global Knowledge (both from list_budget_files). Read a budget's knowledge/instructions.md before working on it. When the user asks you to remember something
 or always do something a certain way, add it to their instructions with update_instructions (for one
 budget or all budgets); say what you'll add first. ${files}
 
@@ -376,7 +379,7 @@ export async function setChatSettings(change: {
 
 /**
  * Sends the user's message. With an API key the app runs the chat itself; otherwise it starts
- * Claude Code if it isn't running, or again in the right folder if the budget showing has changed
+ * Claude Code if it isn't running, or again in the right folder if the budgets open have changed
  * (the conversation carries on).
  */
 export async function sendChat(

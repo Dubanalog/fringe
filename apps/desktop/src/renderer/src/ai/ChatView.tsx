@@ -7,6 +7,7 @@ import {
   type ChatStatus,
   KEY_PROVIDERS,
   type KeyProvider,
+  type OpenBudget,
 } from '../../../shared/ipc';
 import { COMPANIES } from './companies';
 import { KeyForm, KeyWhere } from './KeyForm';
@@ -64,11 +65,14 @@ function endAnswer(items: Item[], change: { error?: string; stopped?: boolean })
 }
 
 /**
- * A chat with Claude about the budget showing. Claude reads the budget and the budget's files, and
- * each change it wants to make waits here for the user to allow it.
+ * A chat with Claude about a budget. Claude reads the budget and the budget's files, and each change
+ * it wants to make waits here for the user to allow it. A conversation stays on the budget showing
+ * when it started, so the user can look at other tabs while Claude works; they can move it to
+ * another between answers.
  */
 export function ChatView({
-  project,
+  budgets,
+  onWorking,
   approvals,
   onDecide,
   allowAll,
@@ -78,8 +82,10 @@ export function ChatView({
   onStatus,
   seed,
 }: {
-  /** The project folder of the budget showing, for adding files. */
-  project: string | null;
+  /** The open budgets, one of them showing. */
+  budgets: OpenBudget[];
+  /** The budget Claude is working on right now (its tab), or null when it's idle. */
+  onWorking: (tab: string | null) => void;
   approvals: Approval[];
   onDecide: (id: string, allow: boolean) => void;
   /** Claude's changes go through without asking, for the rest of this chat. */
@@ -95,7 +101,13 @@ export function ChatView({
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
-  const [thinking, setThinking] = useState(false);
+  // The budget the conversation works on, once it has started; it follows the showing tab before.
+  const [chatTab, setChatTab] = useState<string | null>(null);
+  const started = items.length > 0;
+  const showing = budgets.find((b) => b.showing) ?? null;
+  const mine = (started && budgets.find((b) => b.tab === chatTab)) || null;
+  const target = mine ?? showing;
+  const project = target?.project ?? null;
   const [draft, setDraft] = useState('');
   const [attached, setAttached] = useState<string[]>([]);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -141,25 +153,18 @@ export function ChatView({
       window.fringe.onChatEvent((event: ChatEvent) => {
         switch (event.type) {
           case 'text':
-            setThinking(false);
             setItems((s) => addPart(s, { type: 'text', text: event.text }));
             break;
-          case 'thinking':
-            setThinking(true);
-            break;
           case 'step':
-            setThinking(true);
             setItems((s) => addPart(s, { type: 'step', label: event.label }));
             break;
           case 'turn-end':
             setBusy(false);
-            setThinking(false);
             if (event.error) setItems((s) => endAnswer(s, { error: event.error ?? '' }));
             break;
           case 'setup':
             // Take back the message that couldn't go; it goes again once Claude is set up.
             setBusy(false);
-            setThinking(false);
             setProblem({ status: latest.current.status, account: event.problem });
             setItems((s) => {
               const last = s.at(-1);
@@ -182,11 +187,14 @@ export function ChatView({
 
   useEffect(() => onStarted(items.length > 0), [items.length, onStarted]);
 
+  const workingOn = busy ? (target?.tab ?? null) : null;
+  useEffect(() => onWorking(workingOn), [workingOn, onWorking]);
+
   // Keep the latest message (or approval) in view.
   useEffect(() => {
     const el = list.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [items, approvals, thinking]);
+  }, [items, approvals, busy]);
 
   const send = async (text: string) => {
     const message = text.trim();
@@ -204,11 +212,11 @@ export function ChatView({
     setDraft('');
     setAttached([]);
     setBusy(true);
-    setThinking(true);
-    const result = await window.fringe.sendChat(full);
+    const tab = target?.tab ?? null;
+    setChatTab(tab);
+    const result = await window.fringe.sendChat(full, tab);
     if (!result.ok) {
       setBusy(false);
-      setThinking(false);
       setItems((s) => endAnswer(s, { error: result.error }));
     }
   };
@@ -220,7 +228,6 @@ export function ChatView({
   const stop = async () => {
     await window.fringe.stopChat();
     setBusy(false);
-    setThinking(false);
     setItems((s) => endAnswer(s, { stopped: true }));
   };
 
@@ -229,8 +236,8 @@ export function ChatView({
     await window.fringe.newChat();
     onAllowAll(false);
     setItems([]);
+    setChatTab(null);
     setBusy(false);
-    setThinking(false);
     input.current?.focus();
   };
 
@@ -271,7 +278,8 @@ export function ChatView({
   };
 
   const last = items.at(-1);
-  const waiting = busy && thinking && approvals.length === 0;
+  // Show it the whole time Claude is busy: between messages it may be writing a long batch of changes.
+  const waiting = busy && approvals.length === 0;
 
   return (
     <div
@@ -286,6 +294,41 @@ export function ChatView({
       }}
       onDrop={(e) => void drop(e)}
     >
+      {target && (
+        <div className="ai-budget-bar">
+          {started && budgets.length > 1 ? (
+            <label>
+              Working on{' '}
+              <select
+                value={target.tab}
+                disabled={busy}
+                title={busy ? `Wait for ${name} to finish, or stop it, to switch budgets` : undefined}
+                onChange={(e) => setChatTab(e.target.value)}
+              >
+                {budgets.map((b) => (
+                  <option key={b.tab} value={b.tab}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <span>
+              Working on <strong>{target.name}</strong>
+            </span>
+          )}
+          {started && showing && showing.tab !== target.tab && (
+            <span className="ai-budget-other">
+              <span className="muted">You're looking at {showing.name}.</span>
+              {!busy && (
+                <button type="button" className="btn btn-small" onClick={() => setChatTab(showing.tab)}>
+                  Switch to {showing.name}
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
       <div className="ai-messages" ref={list}>
         {items.length === 0 && (account === 'ready' || account === 'checking') && (
           <div className="ai-empty">

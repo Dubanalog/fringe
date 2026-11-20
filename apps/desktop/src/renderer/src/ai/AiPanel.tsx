@@ -1,5 +1,5 @@
 import { type PointerEvent, useEffect, useState } from 'react';
-import type { ChatStatus } from '../../../shared/ipc';
+import type { ChatStatus, OpenBudget } from '../../../shared/ipc';
 import { AiNotice } from './AiNotice';
 import { AiSettings } from './AiSettings';
 import { type Approval, type ChatSeed, ChatView } from './ChatView';
@@ -37,14 +37,15 @@ function clampWidth(width: number): number {
 
 /**
  * The AI side panel, docked on the right like a browser's; drag its left edge to resize it. A chat
- * with the AI about the budget showing, through the user's own Claude plan (Claude Code) or their
+ * with the AI about a budget (the one showing when the conversation starts), through the user's own Claude plan (Claude Code) or their
  * own API key. The terminal is there for anyone who'd rather use Claude Code directly. Chat and
  * terminal stay mounted while hidden, so a conversation carries on.
  */
 export function AiPanel({
   open,
   onClose,
-  project,
+  budgets,
+  onWorking,
   approvals,
   onDecide,
   allowAll,
@@ -54,7 +55,10 @@ export function AiPanel({
 }: {
   open: boolean;
   onClose: () => void;
-  project: string | null;
+  /** The open budgets, one of them showing: the chat works on one of them. */
+  budgets: OpenBudget[];
+  /** The budget the chat is working on right now (its tab), or null when it's idle. */
+  onWorking: (tab: string | null) => void;
   approvals: Approval[];
   onDecide: (id: string, allow: boolean) => void;
   allowAll: boolean;
@@ -221,7 +225,8 @@ export function AiPanel({
       )}
       <div className="ai-panel-body" hidden={notice || mode !== 'chat'}>
         <ChatView
-          project={project}
+          budgets={budgets}
+          onWorking={onWorking}
           approvals={approvals}
           onDecide={onDecide}
           allowAll={allowAll}

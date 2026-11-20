@@ -21,7 +21,8 @@ import {
   versionOfEntries,
   versionsNewestFirst,
 } from '@fringe/budget-engine';
-import { optionsFor, reportsWith, useReportOptions, versionLabel } from './report-options';
+import { type ComparePair, versionBefore } from './compare-pick';
+import { optionsFor, reportsWith, useOpenChanges, useReportOptions, versionLabel } from './report-options';
 import type { BudgetTab } from './tabs';
 
 interface Props {
@@ -31,8 +32,8 @@ interface Props {
   openFork(entryId: string, version?: string): void;
   saveVersion(version: BudgetVersion): void;
   deleteVersion(versionId: string): void;
-  /** Opens Reports with the Changes report, comparing the budget now with this version. */
-  showChanges(versionId: string): void;
+  /** Opens Reports with the Changes report, comparing these two (null: the budget now). */
+  showChanges(pair: ComparePair): void;
   /** Clears what the AI filled in for the "Save version" form. */
   clearDraft(): void;
 }
@@ -105,7 +106,7 @@ export function HistoryView({
   const [shownCount, setShownCount] = useState(PAGE);
   /** The version being edited: 'new' for a new one. */
   const [editing, setEditing] = useState<string | null>(null);
-  const reportPrefs = useReportOptions();
+  const openChanges = useOpenChanges(showChanges);
   // The AI filling in the form opens it.
   const adding = editing === 'new' || Boolean(tab.versionDraft);
 
@@ -193,12 +194,8 @@ export function HistoryView({
                     )
                       deleteVersion(v.id);
                   }}
-                  showChanges={() => {
-                    const { options, setOptions } = reportPrefs;
-                    if (!options.reports.includes('changes'))
-                      setOptions({ ...options, reports: [...options.reports, 'changes'] });
-                    showChanges(v.id);
-                  }}
+                  previous={versionBefore(tab.history.versions, v)}
+                  showChanges={openChanges}
                 />
               ),
             )}
@@ -365,16 +362,19 @@ function VersionCard({
   fork,
   edit,
   remove,
+  previous,
   showChanges,
 }: {
   tab: BudgetTab;
   version: BudgetVersion;
+  /** The version saved before this one, to compare it with. */
+  previous: BudgetVersion | null;
   showing: boolean;
   goTo(): void;
   fork(): void;
   edit(): void;
   remove(): void;
-  showChanges(): void;
+  showChanges(pair: ComparePair): void;
 }) {
   const [missing, setMissing] = useState(false);
   const budget = versionBudget(tab.history, v);
@@ -404,9 +404,24 @@ function VersionCard({
         </details>
       )}
       <div className="version-actions">
-        <button type="button" className="btn btn-small" onClick={showChanges}>
+        <button
+          type="button"
+          className="btn btn-small"
+          title={`What changed from v${v.number} to the budget now`}
+          onClick={() => showChanges({ from: v.id, to: null })}
+        >
           Changes since
         </button>
+        {previous && (
+          <button
+            type="button"
+            className="btn btn-small"
+            title={`What changed from v${previous.number} to v${v.number}`}
+            onClick={() => showChanges({ from: previous.id, to: v.id })}
+          >
+            Compare with v{previous.number}
+          </button>
+        )}
         {v.pdf && tab.project && (
           <button
             type="button"

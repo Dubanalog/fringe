@@ -12,6 +12,7 @@ import {
 } from '@fringe/budget-engine';
 import { useState } from 'react';
 import type { ReportFormat } from '../../../shared/ipc';
+import { type ComparePair, comparePick } from './compare-pick';
 import { ReportPreview } from './ReportPreview';
 import { reportsWith, useReportOptions, versionLabel } from './report-options';
 
@@ -28,14 +29,14 @@ const FORMATS: readonly { id: ReportFormat; label: string }[] = [
 export function ReportsView({
   budget,
   history,
-  changesFrom,
-  setChangesFrom,
+  changes,
+  setChanges,
 }: {
   budget: Budget;
   history: BudgetHistory;
-  /** The version the Changes report compares with; the latest when null. */
-  changesFrom: string | null;
-  setChangesFrom(versionId: string): void;
+  /** What the Changes report compares (see comparePick): version ids, null for the defaults. */
+  changes: ComparePair;
+  setChanges(pair: ComparePair): void;
 }) {
   const { options: saved, setOptions, landscape, setLandscape } = useReportOptions();
   const [status, setStatus] = useState<{ text: string; error?: true } | null>(null);
@@ -72,8 +73,8 @@ export function ReportsView({
   };
 
   const versions = versionsNewestFirst(history.versions);
-  const since = versions.find((v) => v.id === changesFrom) ?? versions[0] ?? null;
-  const doc = reportsWith(budget, history, options, since);
+  const { since, until } = comparePick(versions, changes.from, changes.to);
+  const doc = reportsWith(budget, history, options, since, undefined, until);
   const title = budgetTitle(budget);
 
   const save = async (format: ReportFormat) => {
@@ -164,24 +165,48 @@ export function ReportsView({
           </ol>
           {options.reports.includes('changes') && (
             <div className="reports-since">
-              {since ? (
-                <label>
-                  <span>Changes since</span>
-                  <select
-                    className="text-input"
-                    value={since.id}
-                    onChange={(e) => {
-                      setChangesFrom(e.target.value);
-                      setStatus(null);
-                    }}
-                  >
-                    {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {versionLabel(v)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              {versions.length > 0 ? (
+                <>
+                  <label>
+                    <span>From</span>
+                    <select
+                      className="text-input"
+                      value={since?.id ?? ''}
+                      onChange={(e) => {
+                        setChanges({ from: e.target.value, to: until?.id ?? null });
+                        setStatus(null);
+                      }}
+                    >
+                      {!since && <option value="">Pick a version</option>}
+                      {versions.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {versionLabel(v)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>To</span>
+                    <select
+                      className="text-input"
+                      value={until?.id ?? ''}
+                      onChange={(e) => {
+                        setChanges({ from: since?.id ?? null, to: e.target.value || null });
+                        setStatus(null);
+                      }}
+                    >
+                      <option value="">The budget now</option>
+                      {versions.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {versionLabel(v)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {since && since.id === until?.id && (
+                    <p className="muted small">Both sides are the same version.</p>
+                  )}
+                </>
               ) : (
                 <p className="muted small">Save a version on the History page to see what changed since.</p>
               )}

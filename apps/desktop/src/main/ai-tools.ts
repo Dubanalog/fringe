@@ -10,25 +10,32 @@ import {
 } from '../shared/ipc';
 import addonGuide from '../../../../docs/ai/addons.md?raw';
 import { type AddonDraft, addonIdForDraft, addonProblem, listAddons, readAddon, saveAddon } from './addons';
-import { type BudgetChoice, budgetChoices, findBudget } from './budget-choice';
+import { type BudgetChoice, type ChatBudget, budgetChoices, chatNote, findBudget } from './budget-choice';
 import { fileText } from './file-text';
-import { budgetFilePath, listBudgetFiles } from './knowledge';
+import { budgetFilePath, globalFilePath, isGlobalName, listBudgetFiles, listGlobalFiles } from './knowledge';
 import { isOpenProject, projectsRoot, recentProjects, writeAtomic } from './projects';
 
 /**
  * What the AI works on: any budget open in the window (one is showing), and recently opened
  * budgets that aren't open, which it can read but not change. Every tool takes an optional
- * `budget`, named as list_budgets names it; without one it works on the budget showing. Changes
- * only ever go to an open budget, through the window, so they land in its history and the user
- * can allow and undo them.
+ * `budget`, named as list_budgets names it; without one it works on the chat's budget for the
+ * app's chat panel (the budget showing when the conversation started, or the one the user picked),
+ * and on the budget showing for other apps. So the user can look at other tabs while the chat works.
+ * Changes only ever go to an open budget, through the window, so they land in its history and the
+ * user can allow and undo them.
  */
+
+/** Where a tool call comes from: the app's chat panel works on the chat's budget. */
+export interface CallFrom {
+  panel: boolean;
+}
 
 /** Tools the app runs itself, served next to the budget tools. */
 export interface AppTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  run(input: Record<string, unknown>): Promise<unknown>;
+  run(input: Record<string, unknown>, from: CallFrom): Promise<unknown>;
 }
 
 /** Runs a budget tool in the window, on a tab (null: the budget showing). */
@@ -39,6 +46,7 @@ export type WindowCaller = (
 ) => Promise<ToolReply>;
 
 let open: OpenBudget[] = [];
+let chat: ChatBudget | null = null;
 
 /** The window's open budgets, checked: a project folder must be one the app opened. */
 export function setOpenBudgets(list: unknown): void {
@@ -55,6 +63,23 @@ export function setOpenBudgets(list: unknown): void {
         ]
       : [],
   );
+  // Keep the chat's budget's name current, for when it's renamed and later closed.
+  const mine = chat && open.find((b) => b.tab === chat?.tab);
+  if (chat && mine) chat = { tab: chat.tab, name: mine.name };
+}
+
+/**
+ * The budget the chat panel works on, by its tab; null for none (then the budget showing). Set
+ * with each message, so it stays put while the user looks at other tabs.
+ */
+export function setChatBudget(tab: unknown): void {
+  const mine = typeof tab === 'string' ? open.find((b) => b.tab === tab) : undefined;
+  chat = mine ? { tab: mine.tab, name: mine.name } : null;
+}
+
+/** The budget a tool call means: the one it names, or the chat's (panel) or the one showing. */
+async function budgetFor(input: Record<string, unknown>, from: CallFrom): Promise<BudgetChoice> {
+  return findBudget(await allBudgets(), input['budget'], from.panel ? chat : null);
 }
 
 export async function allBudgets(): Promise<BudgetChoice[]> {
@@ -62,9 +87,9 @@ export async function allBudgets(): Promise<BudgetChoice[]> {
   return budgetChoices(open, recent);
 }
 
-/** The folder of the budget a tool call names (or the one showing). */
-export async function projectFor(input: Record<string, unknown>): Promise<string> {
-  const choice = findBudget(await allBudgets(), input['budget']);
+/** The folder of the budget a tool call means (see budgetFor). */
+export async function projectFor(input: Record<string, unknown>, from: CallFrom): Promise<string> {
+  const choice = await budgetFor(input, from);
   if (!choice.project) throw new Error(`"${choice.label}" isn't saved in a folder yet, so it has no files.`);
   return choice.project;
 }
@@ -90,14 +115,9 @@ export async function allInstructionsPath(): Promise<string> {
   return path;
 }
 
-/** Said with each message, so the AI knows which budget the user is looking at. */
+/** Said with each message, so the AI knows which budget it works on and which the user sees. */
 export function chatContext(): string {
-  const showing = open.find((b) => b.showing);
-  const others = open.filter((b) => !b.showing).map((b) => `"${b.name}"`);
-  const also = others.length ? ` Also open: ${others.join(', ')}.` : '';
-  return showing
-    ? `(From Fringe, not typed by the user: the budget showing is "${showing.name}".${also})`
-    : `(From Fringe, not typed by the user: no budget is showing.${also})`;
+  return chatNote(open, chat);
 }
 
 /** The project folders of every budget the AI can see, for Claude Code's file reading. */
@@ -108,7 +128,7 @@ export async function budgetFolders(): Promise<string[]> {
 const BUDGET_PARAM = {
   type: 'string',
   description:
-    'Which budget, named as list_budgets gives it. Leave it out for the budget showing in the app.',
+    "Which budget, named as list_budgets gives it. Leave it out for your budget: in Fringe's chat, the one each message names; elsewhere, the one showing in the app.",
 };
 
 function withBudget(schema: Record<string, unknown>): Record<string, unknown> {
@@ -128,7 +148,7 @@ async function readSavedBudget(project: string): Promise<Budget> {
 const INSTRUCTIONS_TOOL = {
   name: 'update_instructions',
   description:
-    'Adds to or rewrites the user\'s standing instructions for the AI: a budget\'s knowledge/instructions.md (for: "budget", the default; the one showing unless you name another), or the instructions for all budgets (for: "all"). Use it when the user asks you to remember something or to always do something a certain way. Say what you\'ll write first; the user allows each change in the chat panel. `add` adds text at the end; `replaceWith` rewrites the whole file (read it first, and keep what the user wrote).',
+    'Adds to or rewrites the user\'s standing instructions for the AI: a budget\'s knowledge/instructions.md (for: "budget", the default; your budget unless you name another), or the instructions for all budgets (for: "all"). Use it when the user asks you to remember something or to always do something a certain way. Say what you\'ll write first; the user allows each change in the chat panel. `add` adds text at the end; `replaceWith` rewrites the whole file (read it first, and keep what the user wrote).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -155,7 +175,7 @@ async function updateInstructions(
     path = await allInstructionsPath();
     whose = 'the instructions for all budgets';
   } else {
-    const choice = findBudget(await allBudgets(), input['budget']);
+    const choice = await budgetFor(input, { panel: confirm });
     if (!choice.project)
       return {
         ok: false,
@@ -293,10 +313,11 @@ export function routeBudgetTools(callWindow: WindowCaller) {
     const tool = BUDGET_TOOLS.find((t) => t.name === name);
     const versionTool = VERSION_TOOLS.some((t) => t.name === name);
     if (!tool && !versionTool) return { ok: false, error: `Unknown tool: ${name}` };
-    const { budget: wanted, ...rest } = asInput(input);
+    const { budget: _named, ...rest } = asInput(input);
     let choice: BudgetChoice;
     try {
-      choice = findBudget(await allBudgets(), wanted);
+      // Edits from the panel wait for the user's OK there, so `confirm` also says it's the panel.
+      choice = await budgetFor(asInput(input), { panel: confirm });
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
@@ -359,11 +380,13 @@ export const APP_TOOLS: readonly AppTool[] = [
   {
     name: 'list_budgets',
     description:
-      "Lists the budgets you can work with: the ones open in the app (one is showing) and recently opened ones that aren't open, which you can read but not change. Also gives the user's instructions for all budgets. Every other tool takes an optional budget, named as listed here; without it, it works on the budget showing. Only look at another budget when the user asks about it.",
+      "Lists the budgets you can work with: the ones open in the app (one is showing) and recently opened ones that aren't open, which you can read but not change. Also gives the user's instructions for all budgets. Every other tool takes an optional budget, named as listed here; without it, it goes to your budget (in Fringe's chat, the one each message names; elsewhere, the one showing). Only look at another budget when the user asks about it.",
     inputSchema: { type: 'object', properties: {} },
-    async run() {
+    async run(_input, from) {
       const list = await allBudgets();
+      const mine = from.panel && chat ? list.find((b) => b.tab === chat?.tab) : undefined;
       return {
+        ...(mine ? { thisChatWorksOn: mine.label } : {}),
         showing: list.find((b) => b.showing)?.label ?? null,
         budgets: list.map((b) => ({
           budget: b.label,
@@ -378,17 +401,25 @@ export const APP_TOOLS: readonly AppTool[] = [
   {
     name: 'list_budget_files',
     description:
-      'Lists the files kept with a budget (the one showing, unless you name another): its knowledge folder of instructions, rules, rate sheets, contracts, deal memos, schedules and anything else the user has given you. Read knowledge/instructions.md before working on a budget.',
+      'Lists the files kept with a budget (yours, unless you name another): its knowledge folder of instructions, rules, rate sheets, contracts, deal memos, schedules and anything else the user has given you. Also lists globalKnowledge: the files the user keeps for every budget (union rate sheets, fringe rules, house conventions). Read knowledge/instructions.md before working on a budget.',
     inputSchema: withBudget({ type: 'object', properties: {} }),
-    async run(input) {
-      const project = await projectFor(input);
-      return { folder: project, files: await listBudgetFiles(project) };
+    async run(input, from) {
+      const globalKnowledge = await listGlobalFiles(projectsRoot());
+      let project: string;
+      try {
+        project = await projectFor(input, from);
+      } catch (err) {
+        // With no budget to work on, the files for every budget still count.
+        if (globalKnowledge.length === 0) throw err;
+        return { globalKnowledge };
+      }
+      return { folder: project, files: await listBudgetFiles(project), globalKnowledge };
     },
   },
   {
     name: 'read_budget_file',
     description:
-      'Reads a file from a budget\'s knowledge folder, named as list_budget_files gives it, e.g. "knowledge/instructions.md". Text of any kind (csv, txt, xml, json, html, exports from other programs) comes as it is; Excel (.xlsx) and OpenDocument spreadsheets come as their cells, sheet by sheet; Word and OpenDocument documents as their words. For a PDF or picture it gives the full path: open that with your own file-reading tool. A long file comes in parts: pass the `offset` it gives you for the next one.',
+      'Reads a file from a budget\'s knowledge folder or Global Knowledge, named as list_budget_files gives it, e.g. "knowledge/instructions.md" or "Global Knowledge/rates.pdf". Text of any kind (csv, txt, xml, json, html, exports from other programs) comes as it is; Excel (.xlsx) and OpenDocument spreadsheets come as their cells, sheet by sheet; Word and OpenDocument documents as their words. For a PDF or picture it gives the full path: open that with your own file-reading tool. A long file comes in parts: pass the `offset` it gives you for the next one.',
     inputSchema: withBudget({
       type: 'object',
       properties: {
@@ -397,9 +428,8 @@ export const APP_TOOLS: readonly AppTool[] = [
       },
       required: ['name'],
     }),
-    async run(input) {
-      const project = await projectFor(input);
-      const full = budgetFilePath(project, input['name']);
+    async run(input, from) {
+      const full = await knowledgeFilePath(input, from);
       if (!full) throw new Error(`No file "${String(input['name'])}". Use list_budget_files for the names.`);
       const got = await fileText(full).catch(() => {
         throw new Error(`Couldn't read "${String(input['name'])}".`);
@@ -419,6 +449,12 @@ export const APP_TOOLS: readonly AppTool[] = [
     },
   },
 ];
+
+/** A file the AI named from a knowledge listing: a Global Knowledge one, or one in its budget's folder. */
+export async function knowledgeFilePath(input: Record<string, unknown>, from: CallFrom): Promise<string | null> {
+  if (isGlobalName(input['name'])) return globalFilePath(projectsRoot(), input['name']);
+  return budgetFilePath(await projectFor(input, from), input['name']);
+}
 
 /** Every tool the AI gets: the budget tools (each with `budget`), then the app's own. */
 export const AI_TOOLS: readonly {
@@ -449,7 +485,7 @@ export const AI_TOOLS: readonly {
   })),
 ];
 
-export const runAppTool = (name: unknown, input: unknown): Promise<unknown> | null => {
+export const runAppTool = (name: unknown, input: unknown, from: CallFrom): Promise<unknown> | null => {
   const tool = APP_TOOLS.find((t) => t.name === name);
-  return tool ? tool.run(asInput(input)) : null;
+  return tool ? tool.run(asInput(input), from) : null;
 };

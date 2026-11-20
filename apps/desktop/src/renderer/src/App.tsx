@@ -10,7 +10,7 @@ import {
   runTool,
   runVersionTool,
 } from '@fringe/budget-engine';
-import { type DragEvent, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { type DragEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   APPROVE_CALL,
   type AddonInfo,
@@ -33,7 +33,8 @@ import { HistoryView } from './budget/HistoryView';
 import { ImportReportView } from './budget/ImportReportView';
 import { CrewListView } from './budget/CrewListView';
 import { ReportsView } from './budget/ReportsView';
-import { KnowledgeView } from './budget/KnowledgeView';
+import type { ComparePair } from './budget/compare-pick';
+import { GlobalKnowledge, KnowledgeView } from './budget/KnowledgeView';
 import { TabStrip } from './budget/TabStrip';
 import { type BudgetTab, initialTabs, tabsReducer } from './budget/tabs';
 import { FringeMark } from './FringeMark';
@@ -116,8 +117,13 @@ const NAV: readonly NavItem[] = [
 
 export function App() {
   const [view, setView] = useState<ViewId>('budget');
-  /** The version the Changes report compares with; the latest when null. */
-  const [changesFrom, setChangesFrom] = useState<string | null>(null);
+  /** The two sides of the Changes report; null picks the defaults (latest version, the budget now). */
+  const [changes, setChanges] = useState<ComparePair>({ from: null, to: null });
+  // Opens Reports on the Changes report, comparing these two (see comparePick).
+  const showChanges = (pair: ComparePair) => {
+    setChanges(pair);
+    setView('reports');
+  };
   const [info, setInfo] = useState<AppInfo | null>(null);
   // Each budget is a project folder; changes are saved there as they happen.
   const [state, dispatch] = useReducer(tabsReducer, initialTabs);
@@ -205,7 +211,10 @@ export function App() {
       showing: t.id === state.activeId,
     })),
   );
-  useEffect(() => window.fringe.setOpenBudgets(JSON.parse(openBudgets) as OpenBudget[]), [openBudgets]);
+  const openList = useMemo(() => JSON.parse(openBudgets) as OpenBudget[], [openBudgets]);
+  useEffect(() => window.fringe.setOpenBudgets(openList), [openList]);
+  // The tab the AI chat is working on, for its dot in the tab strip.
+  const [chatWorking, setChatWorking] = useState<string | null>(null);
 
   useEffect(
     () =>
@@ -580,6 +589,7 @@ export function App() {
           renaming={renamingTab}
           onRenaming={setRenamingTab}
           onRename={renameBudget}
+          working={chatWorking}
         />
         <button
           type="button"
@@ -659,7 +669,12 @@ export function App() {
           <SettingsView info={info} />
         ) : shownView === 'budget' ? (
           active ? (
-            <BudgetWorkspace key={active.id} tab={active} dispatch={dispatch} />
+            <BudgetWorkspace
+              key={active.id}
+              tab={active}
+              dispatch={dispatch}
+              compare={() => showChanges({ from: null, to: null })}
+            />
           ) : (
             <StartView
               error={openError}
@@ -689,8 +704,8 @@ export function App() {
             key={active.id}
             budget={active.budget}
             history={active.history}
-            changesFrom={changesFrom}
-            setChangesFrom={setChangesFrom}
+            changes={changes}
+            setChanges={setChanges}
           />
         ) : shownView === 'import-report' && active ? (
           <ImportReportView
@@ -708,10 +723,7 @@ export function App() {
             saveVersion={(version) => dispatch({ type: 'saveVersion', id: active.id, version })}
             deleteVersion={(versionId) => dispatch({ type: 'deleteVersion', id: active.id, versionId })}
             clearDraft={() => dispatch({ type: 'draftVersion', id: active.id, draft: null })}
-            showChanges={(versionId) => {
-              setChangesFrom(versionId);
-              setView('reports');
-            }}
+            showChanges={showChanges}
             openFork={(entryId, version) => {
               void (async () => {
                 const taken = [
@@ -752,7 +764,8 @@ export function App() {
       <AiPanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
-        project={active?.project ?? null}
+        budgets={openList}
+        onWorking={setChatWorking}
         approvals={approvals}
         onDecide={decide}
         allowAll={allowAll}
@@ -996,17 +1009,7 @@ function SettingsView({ info }: { info: AppInfo | null }) {
       <FringeLibrarySettings />
 
       <h2>Global Knowledge</h2>
-      <p>
-        A folder of knowledge shared across all your budgets: union rate sheets, fringe rules, house
-        conventions and approved assumptions. The AI can use it in every budget. Each budget also has its own
-        Knowledge, which stays with that budget.
-      </p>
-      <div className="actions actions-left">
-        <button type="button" className="btn" disabled title="Not built yet">
-          Choose Folder…
-        </button>
-        <span className="muted">Not built yet.</span>
-      </div>
+      <GlobalKnowledge />
 
       <h2>About</h2>
       {info && (

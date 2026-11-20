@@ -15,14 +15,18 @@ Fringe runs a small MCP server so an AI app can read and edit the budgets open i
   button) fills in the "Save version" form for the user to check and save (`fill_version_form`), and changes
   a saved version's details (`update_version`). Tool calls run in the window; edits go into the budget's
   history as "AI: …" and are saved.
-- **Which budget:** every tool takes an optional `budget`; without it, it works on the budget
-  showing. `list_budgets` lists the open budgets and recently opened ones that aren't open. Those
+- **Which budget:** every tool takes an optional `budget`; without it, a call from Fringe's chat
+  panel goes to the chat's budget (the tab showing when the conversation started, or the one the
+  user switched it to), and a call from anywhere else goes to the budget showing. If the chat's tab
+  was closed, the call fails and the AI asks which budget to use. `list_budgets` lists the open budgets and recently opened ones that aren't open. Those
   can be read (from their `budget.json`) but not changed: edits only go to an open budget, through
-  the window, so the user can allow and undo them. Each chat message starts with a note saying which
-  budget is showing. The AI is told to look at another budget only when the user asks about it
+  the window, so the user can allow and undo them. Each chat message starts with a note naming
+  the chat's budget, the one the user is looking at when that's another, and the rest open. The AI is told to look at another budget only when the user asks about it
   (`apps/desktop/src/main/ai-tools.ts`, `budget-choice.ts`).
 - **Files:** `list_budget_files` and `read_budget_file` (in `apps/desktop/src/main/ai-tools.ts`)
-  read a budget's `knowledge/` folder. Files added on the
+  read a budget's `knowledge/` folder and the Global Knowledge folder
+  (`Fringe Budgets/Global Knowledge/`, listed as `globalKnowledge`, names starting `Global Knowledge/`,
+  readable with no budget open; managed in Settings). Files added on the
   Knowledge screen, or with the panel's paperclip or by dropping them on the panel, are copied into
   `knowledge/`. `knowledge/instructions.md` holds standing instructions for that budget;
   `Fringe Budgets/instructions.md` holds them for every budget and goes into the system prompt.

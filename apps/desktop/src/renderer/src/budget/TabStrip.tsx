@@ -10,13 +10,15 @@ interface Props {
   renaming: string | null;
   onRenaming(id: string | null): void;
   onRename(tab: BudgetTab, name: string): void;
+  /** The tab the AI chat is working on right now, if any. */
+  working: string | null;
 }
 
 /**
  * Open budgets across the top. "+" goes to the start page to open another. Ctrl+Tab switches.
  * Double-click a tab (or F2 on it) to rename the budget.
  */
-export function TabStrip({ tabs, activeId, onActivate, onClose, renaming, onRenaming, onRename }: Props) {
+export function TabStrip({ tabs, activeId, onActivate, onClose, renaming, onRenaming, onRename, working }: Props) {
   return (
     <div className="tab-strip" role="tablist" aria-label="Open budgets">
       {tabs.map((tab) => (
@@ -48,6 +50,9 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, renaming, onRena
             />
           ) : (
             <span className="tab-name">{tab.budget.name}</span>
+          )}
+          {working === tab.id && (
+            <span className="tab-ai" title="The AI is working on this budget" aria-label="AI working" />
           )}
           {tab.dirty && (
             <span

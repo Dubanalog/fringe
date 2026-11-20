@@ -171,8 +171,11 @@ export interface FringeApi {
   /** Terminal output; returns a function that stops listening. */
   onTerminalData(handler: (data: string) => void): () => void;
   onTerminalExit(handler: (code: number) => void): () => void;
-  /** Sends a message to Claude in the side panel's chat; replies arrive through onChatEvent. */
-  sendChat(text: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /**
+   * Sends a message to Claude in the side panel's chat; replies arrive through onChatEvent. `tab` is
+   * the budget the chat works on (null for none); its tools go there while the user looks elsewhere.
+   */
+  sendChat(text: string, tab: string | null): Promise<{ ok: true } | { ok: false; error: string }>;
   /** Stops Claude mid-answer. */
   stopChat(): Promise<void>;
   /** Forgets the conversation; the next message starts a new one. */
@@ -327,6 +330,9 @@ export interface OpenBudget {
 }
 
 /** A file kept with a budget, named from its project folder, e.g. "knowledge/rates.csv". */
+/** Given as the project to the knowledge file calls, it means the Global Knowledge folder. */
+export const GLOBAL_KNOWLEDGE = ':global';
+
 export interface BudgetFile {
   name: string;
   size: number;

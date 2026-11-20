@@ -2,8 +2,7 @@ import { readFile, rm, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { type WebContents, app, safeStorage } from 'electron';
 import { type ChatEvent, IpcChannel, KEY_PROVIDERS, type KeyProvider } from '../shared/ipc';
-import { AI_TOOLS, projectFor, runAppTool } from './ai-tools';
-import { budgetFilePath } from './knowledge';
+import { AI_TOOLS, knowledgeFilePath, runAppTool } from './ai-tools';
 import type { ToolCaller } from './mcp';
 import { writeAtomic } from './projects';
 import { anthropic } from './providers/anthropic';
@@ -140,8 +139,7 @@ const TOOLS: ToolSpec[] = AI_TOOLS.map((t) => ({
 
 /** A PDF or picture from the budget's files, for the model to read. */
 async function readMedia(input: Record<string, unknown>): Promise<Media | null> {
-  const project = await projectFor(input).catch(() => null);
-  const full = project ? budgetFilePath(project, input['name']) : null;
+  const full = await knowledgeFilePath(input, { panel: true }).catch(() => null);
   const mimeType = full ? MEDIA[extname(full).toLowerCase()] : undefined;
   if (!full || !mimeType) return null;
   const size = (await stat(full).catch(() => null))?.size ?? 0;
@@ -159,7 +157,7 @@ async function runTool(
       const media = await readMedia(input);
       if (media) return { text: `${media.name}:`, media, isError: false };
     }
-    const appTool = runAppTool(name, input);
+    const appTool = runAppTool(name, input, { panel: true });
     if (appTool) return { text: JSON.stringify(await appTool, null, 1), media: null, isError: false };
     if (!AI_TOOLS.some((t) => t.name === name))
       return { text: `Unknown tool: ${name}`, media: null, isError: true };

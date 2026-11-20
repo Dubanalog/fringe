@@ -47,7 +47,7 @@ export const REPORTS: readonly { id: ReportId; name: string; description: string
   {
     id: 'changes',
     name: 'Changes',
-    description: 'What changed since a version: the totals then and now, and each change.',
+    description: 'What changed between two versions, or since one: the totals on each side, and each change.',
   },
   { id: 'summary', name: 'Account Summary', description: 'Every account with its total, by category.' },
   { id: 'detail', name: 'Detail', description: 'Every account with its lines, fringes and totals.' },
@@ -157,6 +157,8 @@ export interface ReportExtras {
     budget: Budget;
     /** What changed, in words (a version's "What changed"); shown above the figures. */
     notes?: string;
+    /** The budget to compare it to, e.g. as it was at v2.0; the budget being reported when left out. */
+    to?: { label: string; budget: Budget };
   };
 }
 
@@ -256,7 +258,10 @@ function topsheetReport({ budget, totals, options }: Context): ReportBlock[] {
 function changesReport({ budget, extras }: Context): ReportBlock[] {
   const compare = extras.compare;
   if (!compare) return [];
-  const c: BudgetComparison = compareBudgets(compare.budget, budget);
+  const to = compare.to;
+  const c: BudgetComparison = compareBudgets(compare.budget, to?.budget ?? budget);
+  const nowLabel = to?.label ?? 'Now';
+  const span = to ? `from ${compare.label} to ${to.label}` : `since ${compare.label}`;
   const blocks: ReportBlock[] = [];
   const notes = compare.notes?.trim();
   if (notes) {
@@ -272,7 +277,7 @@ function changesReport({ budget, extras }: Context): ReportBlock[] {
     { label: 'Acct', kind: 'text' },
     { label: 'Account', kind: 'text' },
     { label: compare.label, kind: 'money' },
-    { label: 'Now', kind: 'money' },
+    { label: nowLabel, kind: 'money' },
     { label: 'Difference', kind: 'money' },
   ];
   const noted = (r: ComparedRow) =>
@@ -302,7 +307,7 @@ function changesReport({ budget, extras }: Context): ReportBlock[] {
   for (const t of c.totals) {
     rows.push(row(cells(t), t.name === 'Grand Total' || t.name === 'Net Cost' ? 'grand' : 'normal'));
   }
-  blocks.push({ kind: 'table', heading: `Totals since ${compare.label}`, columns, rows });
+  blocks.push({ kind: 'table', heading: `Totals ${span}`, columns, rows });
   if (c.details.length > 0) {
     const shown = c.details
       .slice(0, CHANGE_DETAIL_LIMIT)
@@ -312,12 +317,12 @@ function changesReport({ budget, extras }: Context): ReportBlock[] {
     }
     blocks.push({
       kind: 'table',
-      heading: `Every change since ${compare.label}`,
+      heading: `Every change ${span}`,
       columns: [
         { label: 'Where', kind: 'text' },
         { label: 'What', kind: 'text' },
         { label: 'Was', kind: 'text' },
-        { label: 'Now', kind: 'text' },
+        { label: nowLabel, kind: 'text' },
       ],
       rows: shown,
     });

@@ -1,5 +1,5 @@
-import { type DragEvent, useCallback, useEffect, useState } from 'react';
-import type { BudgetFile } from '../../../shared/ipc';
+import { type DragEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type BudgetFile, GLOBAL_KNOWLEDGE } from '../../../shared/ipc';
 
 function size(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -12,8 +12,44 @@ function size(bytes: number): string {
  * you ask it about the budget. They live in the budget's project folder.
  */
 export function KnowledgeView({ project }: { project: string }) {
-  const [files, setFiles] = useState<BudgetFile[] | null>(null);
+  return (
+    <KnowledgeFiles source={project} className="view view-scroll knowledge-view" heading={<h1>Knowledge</h1>}>
+      <p className="muted">
+        Files the AI reads when you ask it about this budget: rate sheets, deal memos, union rules, notes. Put
+        standing instructions for the AI in a file called <strong>instructions.md</strong>. Drop files here or
+        on the AI panel to add them. Files for every budget go in Global Knowledge, in Settings.
+      </p>
+    </KnowledgeFiles>
+  );
+}
 
+/** The Global Knowledge folder, for Settings: files the AI reads in every budget. */
+export function GlobalKnowledge() {
+  return (
+    <KnowledgeFiles source={GLOBAL_KNOWLEDGE} className="knowledge-view knowledge-global">
+      <p className="muted">
+        Files the AI reads in every budget: union rate sheets, your chart of accounts, fringe rules, house
+        conventions, approved assumptions. Drop files here to add them. Each budget also has its own
+        Knowledge, which stays with that budget.
+      </p>
+    </KnowledgeFiles>
+  );
+}
+
+/** A knowledge folder's files: a budget's (its project folder) or GLOBAL_KNOWLEDGE. */
+function KnowledgeFiles({
+  source,
+  className,
+  heading,
+  children,
+}: {
+  source: string;
+  className: string;
+  heading?: ReactNode;
+  children: ReactNode;
+}) {
+  const project = source;
+  const [files, setFiles] = useState<BudgetFile[] | null>(null);
   const load = useCallback(async () => setFiles(await window.fringe.budgetFiles(project)), [project]);
 
   useEffect(() => {
@@ -49,7 +85,7 @@ export function KnowledgeView({ project }: { project: string }) {
 
   return (
     <section
-      className={`view view-scroll knowledge-view${dragging ? ' dragging' : ''}`}
+      className={`${className}${dragging ? ' dragging' : ''}`}
       onDragOver={(e) => {
         if (![...e.dataTransfer.types].includes('Files')) return;
         e.preventDefault();
@@ -62,12 +98,8 @@ export function KnowledgeView({ project }: { project: string }) {
       }}
       onDrop={(e) => void drop(e)}
     >
-      <h1>Knowledge</h1>
-      <p className="muted">
-        Files the AI reads when you ask it about this budget: rate sheets, deal memos, union rules, notes. Put
-        standing instructions for the AI in a file called <strong>instructions.md</strong>. Drop files here or
-        on the AI panel to add them. Instructions for all budgets go in one file kept with all your budgets.
-      </p>
+      {heading}
+      {children}
       <div className="actions actions-left">
         <button type="button" className="btn btn-primary" onClick={() => void add()}>
           Add Files…
@@ -100,7 +132,7 @@ export function KnowledgeView({ project }: { project: string }) {
                     title="Open"
                     onClick={() => void window.fringe.openBudgetFile(project, f.name)}
                   >
-                    {f.name.replace(/^knowledge\//, '')}
+                    {f.name.replace(/^(knowledge|Global Knowledge)\//, '')}
                   </button>
                 </td>
                 <td className="num">{size(f.size)}</td>

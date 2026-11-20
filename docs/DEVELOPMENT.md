@@ -47,6 +47,15 @@ npx electron scripts/manual-pdf.mjs
 
 It's written to `apps/desktop/release/Fringe-Manual.pdf`, and each release builds it too.
 
+The screenshots in `docs/images/` are taken from "Fringe Life", a sample budget built in
+`scripts/manual-screenshots/fringe-life.ts`. To take them again after a change to the screens,
+build the app, then run the screenshot script:
+
+```bash
+cd apps/desktop && npx electron-vite build && cd ../..
+npx playwright test --config scripts/manual-screenshots/playwright.config.ts
+```
+
 ## Releases
 
 Pushing a `v*` tag builds the installers for every platform on GitHub and attaches them to a

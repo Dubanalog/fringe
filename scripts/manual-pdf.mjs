@@ -20,7 +20,7 @@ const font = (w) =>
   );
 const mark = readFileSync(`${root}/docs/brand/fringe-icon.svg`, 'utf8');
 
-const html = `<!doctype html><html><head><meta charset="utf-8"><title>Fringe User Manual</title><style>
+const html = `<!doctype html><html><head><meta charset="utf-8"><title>Fringe User Manual</title><base href="${pathToFileURL(`${root}/docs/`)}"><style>
 @font-face { font-family: Jakarta; font-weight: 400; src: url(${font(400)}); }
 @font-face { font-family: Jakarta; font-weight: 600; src: url(${font(600)}); }
 @font-face { font-family: Jakarta; font-weight: 700; src: url(${font(700)}); }
@@ -38,6 +38,7 @@ code { font: 9pt Consolas, Menlo, monospace; background: #f3f1ec; padding: 1px 4
 table { border-collapse: collapse; width: 100%; margin: 8pt 0; page-break-inside: avoid; font-size: 9.5pt; }
 th, td { text-align: left; padding: 4pt 8pt; border-bottom: 1px solid #ddd; vertical-align: top; }
 th { background: #f6f4ef; font-weight: 600; }
+img { display: block; max-width: 100%; margin: 8pt 0 12pt; border: 1px solid #ddd; border-radius: 4px; page-break-inside: avoid; }
 </style></head><body>
 <section class="cover">${mark}<h1>Fringe</h1><p>User Manual</p></section>
 ${body}

@@ -2863,6 +2863,10 @@ button.tag-name {
   background: transparent;
   color-scheme: light;
 }
+/* Names in the percentage and incentive tables get room, or the other columns squeeze them. */
+.percentages .name-cell {
+  min-width: 13em;
+}
 .incentive-fringes {
   display: flex;
   flex-direction: column;

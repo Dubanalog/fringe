@@ -91,7 +91,7 @@ export function Percentages(props: {
                       }
                     />
                   </td>
-                  <td>
+                  <td className="name-cell">
                     <NameInput
                       key={p.name}
                       label="Percentage name"
@@ -307,7 +307,7 @@ export function TaxIncentives(props: {
                       }
                     />
                   </td>
-                  <td>
+                  <td className="name-cell">
                     <NameInput
                       key={p.name}
                       label="Incentive name"

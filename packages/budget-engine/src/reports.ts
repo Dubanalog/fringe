@@ -44,11 +44,6 @@ export const REPORTS: readonly { id: ReportId; name: string; description: string
     name: 'Topsheet',
     description: 'Categories, production totals, percentages and the grand total.',
   },
-  {
-    id: 'changes',
-    name: 'Changes',
-    description: 'What changed between two versions, or since one: the totals on each side, and each change.',
-  },
   { id: 'summary', name: 'Account Summary', description: 'Every account with its total, by category.' },
   { id: 'detail', name: 'Detail', description: 'Every account with its lines, fringes and totals.' },
   {
@@ -69,6 +64,11 @@ export const REPORTS: readonly { id: ReportId; name: string; description: string
     id: 'assumptions',
     name: 'Assumptions',
     description: 'The budget’s assumptions, as written in Budget Settings.',
+  },
+  {
+    id: 'changes',
+    name: 'Changes',
+    description: 'What changed between two versions, or since one: the totals on each side, and each change.',
   },
 ];
 

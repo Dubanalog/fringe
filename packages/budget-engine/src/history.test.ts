@@ -7,6 +7,7 @@ import {
   branchLine,
   branchName,
   canRedo,
+  canBranchFrom,
   canUndo,
   createBranch,
   currentBudget,
@@ -104,7 +105,7 @@ describe('branches', () => {
     expect(isEditable(openBranch(old, MAIN_BRANCH))).toBe(true);
   });
 
-  it('branches from a version on a branch, and from the end of a branch', () => {
+  it('branches only from a saved version, on any branch', () => {
     const { h: main, v11 } = mainLine();
     let h = createBranch(main, '25-day shoot', v11.entryId).history;
     h = edit(h, 'C');
@@ -114,12 +115,16 @@ describe('branches', () => {
     expect(currentBudget(second.history).name).toBe('Pilot C');
     h = edit(second.history, 'E');
     expect(branchLine(h, second.branch.id).map((e) => e.label)).toEqual(['E']);
-    // From the end of the main line, which isn't a version.
-    const third = createBranch(h, 'Union crew', activeBranch(openBranch(h, MAIN_BRANCH)).head);
+    // Not from the end of the main line, which isn't a version: save one there first.
+    const end = activeBranch(openBranch(h, MAIN_BRANCH)).head;
+    expect(canBranchFrom(h, end)).toBe(false);
+    expect(() => createBranch(h, 'Union crew', end)).toThrow(/Save a version first/);
+    const v12 = save(openBranch(h, MAIN_BRANCH), '1.2');
+    const third = createBranch(v12.history, 'Union crew', v12.version.entryId);
     expect(currentBudget(third.history).name).toBe('Pilot B');
-    // Not from a point in between.
+    // Nor from a point in between.
     const mid = h.entries.find((e) => e.label === 'D')!.id;
-    expect(() => createBranch(h, 'Nope', mid)).toThrow(/saved version or from the end/);
+    expect(() => createBranch(h, 'Nope', mid)).toThrow(/saved version/);
   });
 
   it('names branches uniquely, and renames them', () => {

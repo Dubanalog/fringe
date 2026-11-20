@@ -47,13 +47,13 @@ change.
 
 Every film budget has the same shape, from the top down:
 
-1. **Topsheet:** a one-page summary. One row per category (Camera, Wardrobe, Locations…)
+1. Topsheet: a one-page summary. One row per category (Camera, Wardrobe, Locations…)
    with its total, then the extra amounts worked out on the whole budget (payroll costs,
    contingency, tax credits), and the grand total. This is the page producers and studios read
    first.
-2. **Category:** a department or area of cost, made up of accounts. The Camera category might
+2. Category: a department or area of cost, made up of accounts. The Camera category might
    hold accounts for the camera crew, camera rentals and camera purchases.
-3. **Account:** the detail, made of lines. Each line is one cost: "Director of Photography,
+3. Account: the detail, made of lines. Each line is one cost: "Director of Photography,
    10 weeks at $8,000 a week", or "Camera package rental, 40 days at $2,500 a day".
 
 Categories and accounts are numbered, such as category 3300 Camera and account 3301 Director of
@@ -68,8 +68,8 @@ The categories are grouped into production levels, which show as subtotals on th
   writers, producers, the director and the main cast, and the rights to the story.
 - Below-the-line (BTL): everyone and everything else needed to shoot. That covers the crew,
   equipment, sets, locations, travel and catering.
-- **Post-production:** editing, visual effects, music and sound, after shooting.
-- **Other:** insurance, legal, publicity and general costs.
+- Post-production: editing, visual effects, music and sound, after shooting.
+- Other: insurance, legal, publicity and general costs.
 
 ### Time: prep, shoot and wrap
 
@@ -95,10 +95,10 @@ You enter the ones that apply to your production (section 6).
 
 Some costs are worked out from the budget itself rather than line by line:
 
-- **Contingency:** a cushion for the unexpected, often a percentage of the budget.
-- **Completion bond:** insurance that guarantees the film gets finished, priced as a percentage.
+- Contingency: a cushion for the unexpected, often a percentage of the budget.
+- Completion bond: insurance that guarantees the film gets finished, priced as a percentage.
 - Production fees and overhead.
-- **Tax incentives:** many states and countries give back part of what you spend there, as a tax
+- Tax incentives: many states and countries give back part of what you spend there, as a tax
   credit or rebate. They're usually shown below the grand total to give a net cost.
 
 ### Versions
@@ -107,7 +107,7 @@ A budget goes through many drafts. Each time one goes to a studio, a financier o
 company, it's saved as a version (v1, v2…). Later, people will ask what changed between
 versions: "the studio cut $1M; where did it come from?" Fringe keeps every version and can compare
 any two. To try a different plan, such as a shorter shoot, without touching what was sent, start a
-**branch**: another line of the same budget, with its own versions (section 10).
+branch: another line of the same budget, with its own versions (section 10).
 
 ---
 
@@ -134,11 +134,11 @@ box the first time. Click More info, then Run anyway.
 
 When no budget is open, the start page offers:
 
-- **New budget:** type the show's name and click Create.
+- New budget: type the show's name and click Create.
 - Open project (Ctrl+O): a budget folder already on this computer.
 - Import .fringe file (Ctrl+I): a budget someone sent you.
-- **Convert a budget:** one made in another program; the AI converts it (section 12).
-- **Recent:** the budgets you've opened lately.
+- Convert a budget: one made in another program; the AI converts it (section 12).
+- Recent: the budgets you've opened lately.
 
 Each open budget gets its own tab across the top, like a web browser. Click + to open another,
 Ctrl+Tab moves between them, and double-clicking a tab (or F2) renames the budget.
@@ -168,13 +168,13 @@ The Help menu opens this manual, the project's page, and a form to report a prob
 
 ## 3. The screen
 
-- **Left sidebar:** the main pages: Budget, Budget Settings, Reports, Crew List,
+- Left sidebar: the main pages: Budget, Budget Settings, Reports, Crew List,
   Knowledge, Versions, AI and Add-ons, with Settings at the bottom.
-- **Tabs across the top:** one per open budget.
+- Tabs across the top: one per open budget.
 - AI button (top right, Ctrl+J): opens the AI panel beside the budget (section 12).
-- **Breadcrumbs:** where you are in the budget (Topsheet › 3300 Camera › …), with Back and
+- Breadcrumbs: where you are in the budget (Topsheet › 3300 Camera › …), with Back and
   Forward buttons (Alt+← and Alt+→), just like a browser.
-- **Bottom bar:** keyboard hints for the page you're on, whether the budget is saved, and the
+- Bottom bar: keyboard hints for the page you're on, whether the budget is saved, and the
   Show Folder and Export… buttons.
 
 ---
@@ -183,10 +183,10 @@ The Help menu opens this manual, the project's page, and a form to report a prob
 
 The Budget page shows the three levels from section 1:
 
-1. **Topsheet:** one row per category, with its total, then the production level subtotals, the
+1. Topsheet: one row per category, with its total, then the production level subtotals, the
    fringe rows, percentages (section 7) and tax incentives, and the grand total.
-2. **Category:** the accounts in one category, e.g. 3300 Camera.
-3. **Account:** the detail lines, the actual figures.
+2. Category: the accounts in one category, e.g. 3300 Camera.
+3. Account: the detail lines, the actual figures.
 
 ![The topsheet: categories with their fringes and totals, grouped into above-the-line and below-the-line](images/topsheet.png)
 
@@ -217,20 +217,20 @@ The grid works like a spreadsheet:
 
 Each line is Amount × X × Rate = Subtotal:
 
-- **Description:** what it is ("Director of Photography").
-- **Amount:** how many units (e.g. 10 for ten weeks).
-- **Unit:** what the amount counts: days, weeks, hours, flat (a fixed fee) or allow (an
+- Description: what it is ("Director of Photography").
+- Amount: how many units (e.g. 10 for ten weeks).
+- Unit: what the amount counts: days, weeks, hours, flat (a fixed fee) or allow (an
   allowance, a set amount). Set up in Budget Settings › Units.
-- **X:** a multiplier, e.g. 2 for two people, or 1.5 for time and a half. Leave it blank for 1.
-- **Rate:** the cost per unit.
-- **Subtotal:** worked out for you.
-- **Fringes:** which fringes apply to this line (section 6). The Fringe % column shows what
+- X: a multiplier, e.g. 2 for two people, or 1.5 for time and a half. Leave it blank for 1.
+- Rate: the cost per unit.
+- Subtotal: worked out for you.
+- Fringes: which fringes apply to this line (section 6). The Fringe % column shows what
   they add as a percentage of the line.
 - Groups, Set, Location and the code columns: tags for reports and tax incentives.
   A set is a place built or dressed for filming ("Kitchen", "Spaceship bridge"); a location
   is a real place you film at.
-- **Range:** groups one person's lines for fringe cutoffs (section 6).
-- **Currency:** for lines budgeted in another currency (section 5).
+- Range: groups one person's lines for fringe cutoffs (section 6).
+- Currency: for lines budgeted in another currency (section 5).
 
 Any number can be a formula (`11*1.5`, `5000/2`) or use a global: a named number such as
 `SHOOT` for shoot days. Change the global once and every line that uses it updates.
@@ -266,32 +266,31 @@ Copying works the other way too: select lines, press Ctrl+C and paste into a spr
 
 Budget Settings applies to the budget in front of you only. It has these tabs:
 
-- **General:**
+- General:
   - The budget's name.
   - The report title printed on every report.
-  - The theme (which applies to every budget).
   - Show money as dollars and cents, or whole dollars.
-  - **Calculation rounding:** round each line to cents, or keep full precision.
-  - **Show tax incentives:** under the grand total with a Net Cost line, or taken off the grand
+  - Calculation rounding: round each line to cents, or keep full precision.
+  - Show tax incentives: under the grand total with a Net Cost line, or taken off the grand
     total (section 7).
-- **Chart of Accounts:**
+- Chart of Accounts:
   - How category and account numbers look. Type a pattern with `#` for each digit: `####` is
     1102, `##-##` is 11-02. Changing the pattern renumbers everything, in one step you can undo.
   - The production totals (Above-the-Line, Below-the-Line, Post, Other). A category belongs to
     the total with the highest starting number at or below its own.
-- **Units:** day, week, hour and so on, and how many hours each one is (used by fringes charged
+- Units: day, week, hour and so on, and how many hours each one is (used by fringes charged
   per hour). A 10-hour day and a 50-hour week are common.
-- **Currencies:** the budget's own currency, and any others, each with its rate: what one unit is
+- Currencies: the budget's own currency, and any others, each with its rate: what one unit is
   worth in the budget's currency (e.g. 1 CAD = 0.73 USD). A line in another currency shows its
   own figures; totals, fringes and reports convert it. Change a rate and every total follows.
-- **Groups:** named groups of lines, for reports and tax incentives, e.g. "Georgia spend" or
+- Groups: named groups of lines, for reports and tax incentives, e.g. "Georgia spend" or
   "Second unit". A group can have a color.
-- **Fringes:** section 6.
-- **Globals:** named numbers and formulas used in lines, each with a description, such as
+- Fringes: section 6.
+- Globals: named numbers and formulas used in lines, each with a description, such as
   `SHOOT` = 30 shoot days, or `WEEKS` = `SHOOT/5`.
-- **Percentages:** contingency, fees and tax incentives (section 7).
-- **Codes:** the lists behind the Set, Location and code columns.
-- **Assumptions:** a notes page for what the budget assumes: shoot days, locations, union
+- Percentages: contingency, fees and tax incentives (section 7).
+- Codes: the lists behind the Set, Location and code columns.
+- Assumptions: a notes page for what the budget assumes: shoot days, locations, union
   agreements, which rates. It has basic formatting and can print with the reports. The AI can draft
   it for you.
 
@@ -320,14 +319,14 @@ Then give a line its fringes in the line's Fringes column or in the line panel.
 
 Choose where fringes post:
 
-- **Each account:** in the Fringes column of the account they come from.
-- **One account per category:** each category has a fringe account (e.g. 3399 in 3300 Camera)
+- Each account: in the Fringes column of the account they come from.
+- One account per category: each category has a fringe account (e.g. 3399 in 3300 Camera)
   that collects the category's fringes. The other accounts show their own fringes greyed, with
   "→ 3399", so you can see where they went; they aren't added twice. Set which number the fringe
   account ends in; a category without one keeps its fringes on each account, and the budget page
   warns you.
-- **One account per production level:** a fringe row per level on the topsheet.
-- **One account for the whole budget:** one fringe row at the bottom of the topsheet.
+- One account per production level: a fringe row per level on the topsheet.
+- One account for the whole budget: one fringe row at the bottom of the topsheet.
 
 Wherever they post, the account they land in lists each fringe, the rate, what it was charged on
 and where it came from.
@@ -371,7 +370,7 @@ categories' total and added to the grand total. For each one, set:
 
 - the account number it shows under on the topsheet and its name,
 - the percent (use a minus to take something off, e.g. -5),
-- **leave out groups:** groups of lines it isn't charged on, such as a bond that excludes
+- leave out groups: groups of lines it isn't charged on, such as a bond that excludes
   above-the-line.
 
 The table shows what each is worked out on and the amount.
@@ -390,7 +389,8 @@ one up:
 
 The table shows the qualifying spend, the credit, and the amount you receive. In
 Budget Settings › General you choose whether incentives appear under the grand total with a Net
-Cost line, or are taken off the grand total.
+Cost line, or are taken off the grand total. With the Net Cost line, the bar at the bottom of the
+window shows the net cost next to the budget total.
 
 ---
 
@@ -398,24 +398,24 @@ Cost line, or are taken off the grand total.
 
 The Reports page builds:
 
-- **Topsheet:** categories, production totals, percentages and the grand total.
-- **Account Summary:** every account with its total, by category.
-- **Detail:** every account with its lines, fringes and totals.
-- **Crew List:** the budget's labor on its own (section 9).
-- **Fringes:** each fringe: its rate, cutoff, what it applies to and what it comes to.
-- **Globals:** each global, its formula and what it works out to.
+- Topsheet: categories, production totals, percentages and the grand total.
+- Account Summary: every account with its total, by category.
+- Detail: every account with its lines, fringes and totals.
+- Crew List: the budget's labor on its own (section 9).
+- Fringes: each fringe: its rate, cutoff, what it applies to and what it comes to.
+- Globals: each global, its formula and what it works out to.
 - Groups, Sets and Locations: what the lines in each add up to.
-- **Assumptions:** the assumptions page.
-- **Changes:** what changed between two saved versions, or since one: the totals on each side,
-  the difference, and every change (section 10).
+- Assumptions: the assumptions page.
+- Comparison: what changed since a saved version, up to what's showing: the totals on each
+  side, the difference, and every change (section 10).
 
 Tick the reports you want and drag them (or Alt+↑/↓) into the order they print in. The options:
 
 - Leave out what comes to zero.
-- **Show fringe detail:** the Detail lists each fringe with its rate and what it applies to,
+- Show fringe detail: the Detail lists each fringe with its rate and what it applies to,
   instead of one Fringes line.
 - Landscape (PDF).
-- **Production levels:** print only, say, below-the-line in the Account Summary and Detail. None
+- Production levels: print only, say, below-the-line in the Account Summary and Detail. None
   ticked prints them all.
 
 The title printed at the top comes from Budget Settings › General. Check the preview, then
@@ -455,86 +455,123 @@ undo and then make a different change, the old path is still kept in the budget'
 ### The Versions page
 
 The Versions page shows the budget as a tree. The main line is named after the budget, and each
-branch (see below) has its own row. Along each row are the versions saved on it, ending in a dashed
-**Latest** point: the budget as it is now on that branch, where work goes on. Hover over a point to
-see its total, who it went to and when; the point you're looking at is marked Showing now.
+branch (see below) has its own row, under the branch it came from. Along each row are the versions
+saved on it, ending in a dashed Latest point: the budget as it is now on that branch, where work
+goes on. A new branch shows "No changes yet" there until something is changed on it. A line joins
+each branch to the version it started from.
+
+![The Versions page: the main line, a 25-day shoot branch from v1.1, and a 20-day shoot branch not picked](images/history.png)
+
+The tree reads in time order. Points run left to right in the order they happened, across all
+the rows, so a point further right came later, even on another branch. In the picture above, the
+25-day shoot's v1.0 sits right of the main line's v2.0 because it was saved a week later. The date
+row across the top (Earlier → Later) marks where each new day starts, as Today, Yesterday or a
+date, with a faint line down through the rows. Work saved on the same day shares one date.
+
+Press and drag on the tree to move around a long one. A small dot with a time is where a branch was
+started in an older budget, before branches had to start from a version.
+
+Hover over a point to see its name, when it was created, when and to whom it was sent, and its
+total. On a Latest point it says how many changes there are since the last version, and when the
+last one was. The point you're looking at has a ring and is marked Showing now.
+
+![Hovering over v2.0: Studio draft, created October 27, sent October 30 to the studio, and its total](images/versions-tip.png)
 
 Click a point for what you can do with it:
 
-- **Open and work here** (the end of a branch), or **Open (read-only)** (a version or an
+- Open and work here (the end of a branch), or Open (read-only) (a version or an
   earlier point): shows the budget as it was there.
-- **Start a branch from here…:** see Branches below.
-- **Changes since v…:** what changed from this version to the budget now.
-- **Compare with v…:** this version against the one saved before it.
-- **Show PDF:** the PDF saved with it, in its folder.
-- **Edit details…**, or **Delete version…**. Deleting a version doesn't delete any changes, only
+- Start a branch from here… (a version), or Save a version, then start a branch… (a
+  Latest point): see Branches below.
+- Open and compare with v…: opens this version and compares it with the one saved before it.
+- Compare what's showing with v…: what changed from this version to the point showing.
+- Show PDF: the PDF saved with it, in its folder.
+- Edit details…, or Delete version…. Deleting a version doesn't delete any changes, only
   the bookmark.
-- **Copy to new budget…:** a separate budget, in its own tab and folder, starting from this
+- Copy to new budget…: a separate budget, in its own tab and folder, starting from this
   point. Name it, and it carries its history with it.
+
+![The menu for the main line's Latest point, with Save a version, then start a branch…](images/versions-menu.png)
 
 Click a branch's name to open its latest, rename it, or mark it not picked.
 
-Below the tree, **Changes on…** lists every change on the branch showing, by you or the AI,
+Below the tree, Changes on… lists every change on the branch showing, by you or the AI,
 newest first: what changed, where, the total after it, and when. Changes the AI made are marked.
 Click a change to see exactly what it did. Changes are also marked Not in a version yet (made
 since the last saved version) or Not in the budget showing (undone, or after the point you're
 looking at).
 
-![The Versions page with three saved versions](images/history.png)
+Each version saved on the branch has its own row in that list, where it was saved: its name, when
+and to whom it was sent, and its total. Under it are its notes and What changed, so you can read
+them without editing. Click the row to fold it away. Edit details… changes them, and Show PDF
+opens the PDF saved with it.
 
 ### Saving a version
 
 When a draft goes out, click Save version… on the Versions page and fill in:
 
-- **Version:** the number. Fringe suggests the next one on the branch, e.g. v1.1 or v2.0.
-- **Name:** e.g. "Studio draft".
+- Version: the number. Fringe suggests the next one on the branch, e.g. v1.1 or v2.0.
+- Name: e.g. "Studio draft".
 - Sent on and Sent to: when and to whom, e.g. "Studio, completion bond".
 - Notes.
 - What changed since the last version. Fill in from the figures writes it from the
   numbers; or ask the AI in the side panel to write it.
-- **Save a PDF of the reports:** saves the reports ticked on the Reports page as a PDF in the
+- Save a PDF of the reports: saves the reports ticked on the Reports page as a PDF in the
   budget's `versions` folder, so you have exactly what was sent. A version on a branch has the
   branch in its file name, e.g. "Pilot - 25-day shoot v1.0.pdf".
 
 A version is always saved from the latest point of a branch.
 
+You can also ask the AI to save one, e.g. "save this as v1.2, sent to the studio today". It
+fills in the details, writes What changed, and asks you first with an Allow card. A version the
+AI saves has no PDF; to save one with it, ask the AI to fill in the form instead, then tick Save a
+PDF and click Save version yourself.
+
 ### Versions and earlier points stay as they were
 
 A saved version is what was sent, so it never changes. When you open a version or an earlier
 point, a bar above the budget says what you're looking at, and the budget is greyed. To go on
-working, click **Back to latest**. To change what you're looking at, click **Start a branch from
-here…** and name the branch. If you start typing anyway, Fringe keeps your change and asks for a
+working, click Back to latest. To change what you're looking at, click Start a branch from
+here… and name the branch. If you start typing anyway, Fringe keeps your change and asks for a
 branch name to put it on, or you can drop it.
 
 ### Branches
 
 A branch is another line of the same budget, for a different plan: "what if we shoot in 25 days?"
-Start one from a saved version or from the latest point of a branch: click the point, choose
-Start a branch from here…, and give it a name, such as "25-day shoot". The branch opens, ready to
-work on, and the point it started from stays as it was.
+A branch always starts from a saved version, so you can always tell what it came from. Click the
+version, choose Start a branch from here…, and give it a name, such as "25-day shoot". The branch
+opens, ready to work on, and the version stays as it was.
+
+To start one from where a branch is now, click its Latest point and choose Save a version, then
+start a branch…: save the version as usual, then name the branch.
 
 - Each branch numbers its own versions from v1.0, so the 25-day shoot's v1.0 is not the main
   line's v1.0.
-- The tab shows which branch you're on, e.g. "Pilot · 25-day shoot".
-- Branches are never merged. When the studio picks a plan, mark the others **not picked**: they're
-  greyed and can be hidden (Show branches not picked), but never deleted. Pick it back up to undo
-  that.
+- The tab shows which branch you're on, e.g. "Fringe Life · 25-day shoot".
+- Branches are never merged. When the studio picks a plan, mark the others not picked: they're
+  greyed with a dotted line, like the 20-day shoot in the picture above, and hidden unless you tick
+  Show branches not picked. They're never deleted, and you can pick one back up.
 - To make a branch into a budget of its own, use Copy to new budget… on one of its points.
 
 ### Comparing versions
 
-To see what moved between drafts (say, where the studio's $1M cut landed), open the Changes
-report. Its From and To pickers take any two saved versions, or a version and the budget
-now. It shows each account's total on both sides and the difference, then every change in detail,
-and it prints and exports like the other reports.
+To see what moved between drafts (say, where the studio's $1M cut landed), open the Comparison
+report. It compares what's showing (the budget now, or a version you opened) with a version you
+pick under From: by default the one before it. It shows each account's total on both sides and the
+difference, then every change in detail, and it prints and exports like the other reports.
 
-![The Changes report comparing v1.1 with v2.0](images/compare.png)
+To compare two older versions, open the later one first, so a comparison always prints what you're
+looking at. Versions on other branches can be picked under From too, marked with their branch's name.
+
+![The Comparison report comparing v1.1 with v2.0](images/compare.png)
 
 There are three ways in:
 
-- Compare at the top of the budget page: the latest version against the budget now.
-- Compare with v… on a version on the Versions page: that version against the one saved before it.
-- Changes since v… on a version on the Versions page: that version against the budget now.
+- Compare at the top of the budget page: what's showing against the version before it.
+- Open and compare with v… on a version on the Versions page: opens that version and compares it
+  with the one saved before it.
+- Compare what's showing with v… on a version on the Versions page: that version against what's
+  showing.
 
 ---
 
@@ -579,12 +616,16 @@ budget from another program.
 
 ### Turning it on
 
-Open the AI panel (the AI button at the top right, or Ctrl+J). The gear button chooses which AI
-Fringe uses:
+Open the AI panel (the AI button at the top right, or Ctrl+J). The settings button (the
+sliders) chooses which AI Fringe uses:
 
 - Claude, with your Claude Pro or Max plan, through Claude Code, Anthropic's app. If it isn't
   installed, the panel links to it. You sign in once on Claude's own page in your browser; Fringe
-  never sees your password.
+  never sees your password. Under Model, pick Opus, Sonnet or Haiku, or leave Claude Code's
+  default. A new model takes effect with your next message, and the chat carries on. Your plan
+  sets which models you can use and how much; Sonnet and Haiku go further on its limits.
+  Claude Code's own commands, like /model, don't work in the panel; it tells you where to go
+  instead.
 - An API key from Anthropic, OpenAI or Google. The company bills you for what the AI reads
   and writes. You type the key yourself; it's stored encrypted on this computer, and Remove
   deletes it. Pick the model from the list.
@@ -596,14 +637,15 @@ Switching starts a new chat.
 Type a question or request, or start from one of the suggestions. While the AI works, the panel
 shows each step it takes in plain words, and Working…. You can stop it at any time.
 
-- **Add files:** the paperclip, or drop files on the panel. They go into the budget's Knowledge.
-- **Changes wait for you.** Before the AI changes the budget, a card says what it wants to do, and
+- Add files: the paperclip, or drop files on the panel. They go into the budget's Knowledge.
+- Changes wait for you. Before the AI changes the budget, a card says what it wants to do, and
   you click Allow or Don't Allow. Allow all in this chat lets it go ahead without
   asking for the rest of the chat; Ask me again turns that off. Changes to instruction files
   always ask.
 - Every change the AI makes goes into the budget's history like yours, marked as the AI's, and you
   can undo it. The AI can't change a version or an earlier point either: it asks you to start a
-  branch (it can start one once you name it and allow it) or to go back to the latest.
+  branch (it can start one once you name it and allow it) or to go back to the latest. It can
+  save a version too, once you allow it.
 - New Chat starts over.
 - The terminal button opens Claude Code in a terminal, for people who prefer it.
 - Drag the panel's edge to make it wider; double-click the edge for the usual width.
@@ -624,9 +666,9 @@ The AI only sees a budget when you ask it something, and only through the AI com
 The AI page in the sidebar has:
 
 - Open the AI Panel.
-- **Activity:** each thing the AI read or changed, with the time and the budget.
-- **What the AI can do:** every tool it has, with the ones that change the budget marked.
-- **Advanced: connect another AI app:** for AI apps you run yourself, such as Claude Code in your
+- Activity: each thing the AI read or changed, with the time and the budget.
+- What the AI can do: every tool it has, with the ones that change the budget marked.
+- Advanced: connect another AI app: for AI apps you run yourself, such as Claude Code in your
   own terminal or any app that supports MCP (a standard way for AI apps to use other programs).
   Tick Let AI apps on this computer connect to Fringe, then Copy Command and run it once in
   a terminal. The command holds a private key Fringe made; keep it private like a password, and
@@ -654,9 +696,9 @@ keeps for a budget is saved in that budget, with undo.
 
 On the Add-ons page:
 
-- **Build one with Claude:** pick one of the ideas, or Something else…, and describe what you
+- Build one with Claude: pick one of the ideas, or Something else…, and describe what you
   need in the AI panel ("make me a weekly cash flow from the shoot schedule").
-- **Your add-ons:** each one can be opened, Changed with Claude, shown as a file, or
+- Your add-ons: each one can be opened, Changed with Claude, shown as a file, or
   removed. Open ones also appear under Add-ons in the sidebar.
 - Add from file… adds an add-on someone sent you; Open add-ons folder shows where they're
   kept.
@@ -670,10 +712,10 @@ lines. Only add files you trust.
 
 Settings (bottom of the sidebar) holds what applies to the whole app:
 
-- **Appearance:** match the system, light, dark, or a color theme, with a preview.
-- **Fringe Rates:** your rate library (section 6).
-- **Global Knowledge:** files the AI reads in every budget (section 11).
-- **About:** the version you're running.
+- Appearance: match the system, light, dark, or a color theme, with a preview.
+- Fringe Rates: your rate library (section 6).
+- Global Knowledge: files the AI reads in every budget (section 11).
+- About: the version you're running.
 
 ---
 
@@ -702,43 +744,43 @@ On a Mac, use ⌘ where it says Ctrl (except Ctrl+Tab).
 
 ## Glossary
 
-- **Above-the-line (ATL):** the key creative costs: story rights, writers, producers, director,
+- Above-the-line (ATL): the key creative costs: story rights, writers, producers, director,
   main cast.
-- **Account:** a numbered group of lines inside a category, e.g. 3301 Director of Photography.
-- **Allow (allowance):** a set amount for something not worked out in detail.
-- **Below-the-line (BTL):** the crew, equipment, sets, locations and other costs of shooting.
-- **Box or kit rental:** a fee paid to crew members for using their own equipment. It isn't wages,
+- Account: a numbered group of lines inside a category, e.g. 3301 Director of Photography.
+- Allow (allowance): a set amount for something not worked out in detail.
+- Below-the-line (BTL): the crew, equipment, sets, locations and other costs of shooting.
+- Box or kit rental: a fee paid to crew members for using their own equipment. It isn't wages,
   so it has no fringes.
-- **Branch:** another line of the same budget, started from a version, for a different plan,
+- Branch: another line of the same budget, started from a version, for a different plan,
   e.g. "25-day shoot". It numbers its own versions from v1.0.
-- **Category:** a department or area of cost on the topsheet, e.g. 3300 Camera.
-- **Chart of accounts:** the numbered list of categories and accounts a budget uses.
-- **Completion bond:** insurance that guarantees a film is finished and delivered, priced as a
+- Category: a department or area of cost on the topsheet, e.g. 3300 Camera.
+- Chart of accounts: the numbered list of categories and accounts a budget uses.
+- Completion bond: insurance that guarantees a film is finished and delivered, priced as a
   percentage of the budget.
-- **Contingency:** an amount set aside for the unexpected, usually a percentage of the budget.
-- **Copy to new budget:** a separate budget, started from any point in another's history.
-- **Cutoff:** the most pay per person in a year that a fringe is charged on.
-- **Deal memo:** the agreed terms for hiring a person: rate, dates, credit.
-- **Flat:** a fixed fee, not by time.
-- **Fringe:** a cost on top of wages, such as payroll taxes, pension, health, vacation pay or
+- Contingency: an amount set aside for the unexpected, usually a percentage of the budget.
+- Copy to new budget: a separate budget, started from any point in another's history.
+- Cutoff: the most pay per person in a year that a fringe is charged on.
+- Deal memo: the agreed terms for hiring a person: rate, dates, credit.
+- Flat: a fixed fee, not by time.
+- Fringe: a cost on top of wages, such as payroll taxes, pension, health, vacation pay or
   workers' compensation.
-- **Fringe range:** lines for the same person, so a cutoff is used up across them.
-- **Global:** a named number or formula, such as shoot days, used in many lines.
-- **Grand total:** the total cost of the budget.
-- **Group:** a tag on lines, for reports and tax incentives.
-- **Line:** one cost in an account: amount × multiplier × rate.
-- **Loan-out:** a crew member's own company, through which they're paid.
-- **Location:** a real place you film at.
-- **Net cost:** the grand total less tax incentives.
-- **Post-production (post):** editing, visual effects, music and sound, after shooting.
-- **Prep, shoot, wrap:** before, during and after filming.
-- **Production level:** a topsheet subtotal such as above-the-line or below-the-line.
-- **Set:** a place built or dressed for filming.
-- **Tax incentive:** part of the money spent in a state or country, paid back as a credit or
+- Fringe range: lines for the same person, so a cutoff is used up across them.
+- Global: a named number or formula, such as shoot days, used in many lines.
+- Grand total: the total cost of the budget.
+- Group: a tag on lines, for reports and tax incentives.
+- Line: one cost in an account: amount × multiplier × rate.
+- Loan-out: a crew member's own company, through which they're paid.
+- Location: a real place you film at.
+- Net cost: the grand total less tax incentives.
+- Post-production (post): editing, visual effects, music and sound, after shooting.
+- Prep, shoot, wrap: before, during and after filming.
+- Production level: a topsheet subtotal such as above-the-line or below-the-line.
+- Set: a place built or dressed for filming.
+- Tax incentive: part of the money spent in a state or country, paid back as a credit or
   rebate.
-- **Topsheet:** the one-page summary of a budget.
-- **Version:** a saved copy of the budget as it was sent out, e.g. v1.0 to the studio.
-- **Workers' compensation:** insurance for injuries at work, charged on payroll.
+- Topsheet: the one-page summary of a budget.
+- Version: a saved copy of the budget as it was sent out, e.g. v1.0 to the studio.
+- Workers' compensation: insurance for injuries at work, charged on payroll.
 
 ---
 

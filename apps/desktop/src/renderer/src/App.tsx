@@ -39,7 +39,6 @@ import { LockBar, needsLockBar } from './budget/LockBar';
 import { ImportReportView } from './budget/ImportReportView';
 import { CrewListView } from './budget/CrewListView';
 import { ReportsView } from './budget/ReportsView';
-import type { ComparePair } from './budget/compare-pick';
 import { GlobalKnowledge, KnowledgeView } from './budget/KnowledgeView';
 import { TabStrip } from './budget/TabStrip';
 import { type BudgetTab, type TabsAction, initialTabs, tabsReducer } from './budget/tabs';
@@ -123,11 +122,11 @@ const NAV: readonly NavItem[] = [
 
 export function App() {
   const [view, setView] = useState<ViewId>('budget');
-  /** The two sides of the Changes report; null picks the defaults (latest version, the budget now). */
-  const [changes, setChanges] = useState<ComparePair>({ from: null, to: null });
-  // Opens Reports on the Changes report, comparing these two (see comparePick).
-  const showChanges = (pair: ComparePair) => {
-    setChanges(pair);
+  /** The version the Comparison report compares what's showing with; null for the one before it. */
+  const [compareFrom, setCompareFrom] = useState<string | null>(null);
+  // Opens Reports on the Comparison report, from this version.
+  const showComparison = (from: string | null) => {
+    setCompareFrom(from);
     setView('reports');
   };
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -563,7 +562,13 @@ export function App() {
   }, [openFringeFile, openProject, activeId]);
 
   // The React Compiler memoizes this on the budget.
-  const total = active ? calculateTotals(active.budget).grand.total : null;
+  const totals = active ? calculateTotals(active.budget) : null;
+  const total = totals?.grand.total ?? null;
+  // With incentives shown under the grand total, the footer also gives the net cost after them.
+  const netCost =
+    totals && active?.budget.settings.incentivePlacement === 'net' && totals.incentives.length > 0
+      ? totals.net
+      : null;
 
   return (
     <div
@@ -702,7 +707,7 @@ export function App() {
               key={active.id}
               tab={active}
               dispatch={dispatch}
-              compare={() => showChanges({ from: null, to: null })}
+              compare={() => showComparison(null)}
             />
           ) : (
             <StartView
@@ -733,8 +738,8 @@ export function App() {
             key={active.id}
             budget={active.budget}
             history={active.history}
-            changes={changes}
-            setChanges={setChanges}
+            compareFrom={compareFrom}
+            setCompareFrom={setCompareFrom}
           />
         ) : shownView === 'import-report' && active ? (
           <ImportReportView
@@ -769,7 +774,7 @@ export function App() {
             saveVersion={(version) => dispatch({ type: 'saveVersion', id: active.id, version })}
             deleteVersion={(versionId) => dispatch({ type: 'deleteVersion', id: active.id, versionId })}
             clearDraft={() => dispatch({ type: 'draftVersion', id: active.id, draft: null })}
-            showChanges={showChanges}
+            showComparison={showComparison}
             copyToNew={(entryId, version, branchId) => {
               void (async () => {
                 const taken = [
@@ -889,6 +894,11 @@ export function App() {
         {active && total !== null && (
           <span className="status-total" title="Budget total, including fringes">
             Budget total <strong>{formatMoney(total, active.budget.settings.displayPrecision)}</strong>
+          </span>
+        )}
+        {active && netCost !== null && (
+          <span className="status-total" title="The budget total less tax incentives">
+            Net cost <strong>{formatMoney(netCost, active.budget.settings.displayPrecision)}</strong>
           </span>
         )}
       </footer>
@@ -1072,7 +1082,7 @@ function SettingsView({ info }: { info: AppInfo | null }) {
           <dd>{info.engineVersion}</dd>
           <dt>Platform</dt>
           <dd>
-            {info.platform} {info.arch} · Electron {info.electron}
+            {info.platform} {info.arch}
           </dd>
           <dt>License</dt>
           <dd>AGPL-3.0</dd>

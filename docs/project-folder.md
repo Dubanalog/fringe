@@ -36,8 +36,8 @@ deleting it adds a `version-deleted` line. The log is never pruned.
 
 ## Branches
 
-A budget has a main line and any number of named branches, each started from a saved version or
-from the end of another branch. A `branch` line records a branch: its id, name, the entry it
+A budget has a main line and any number of named branches, each started from a saved version
+(older budgets may have branches started from the end of another branch). A `branch` line records a branch: its id, name, the entry it
 starts from, when, and whether it's marked not picked. Renaming it or marking it adds another
 `branch` line with the same id; the latest wins. A new id also shows that branch. Opening the end
 of another branch adds a `show` line, so the project opens on the branch last worked on. Looking at

@@ -41,8 +41,7 @@ export function LockBar({ tab, dispatch }: { tab: BudgetTab; dispatch(action: Ta
       return (
         <div className="lock-bar" role="status">
           <span className="lock-text">
-            <strong>{here}</strong> can’t be changed, and a branch can only start from a version or a branch’s
-            latest.
+            <strong>{here}</strong> can’t be changed, and a branch can only start from a saved version.
           </span>
           <button type="button" className="btn" onClick={() => dispatch({ type: 'dropEdit', id: tab.id })}>
             Drop the change

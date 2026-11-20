@@ -55,6 +55,28 @@ export function AiSettings({
         ))}
       </div>
 
+      {provider === 'claude-code' && (
+        <section className="ai-settings-section">
+          <h4>Model</h4>
+          <select
+            className="text-input"
+            value={status.model}
+            aria-label="Model"
+            onChange={(e) => void window.fringe.setChatSettings({ model: e.target.value }).then(onStatus)}
+          >
+            {status.models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <p className="muted small">
+            Takes effect with your next message, and the chat carries on. Your Claude plan sets which models
+            you can use and how much.
+          </p>
+        </section>
+      )}
+
       {provider !== 'claude-code' && (
         <section className="ai-settings-section">
           <h4>{COMPANIES[provider].company} API key</h4>

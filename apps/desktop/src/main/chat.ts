@@ -13,6 +13,7 @@ import {
   KEY_PROVIDERS,
   type KeyProvider,
 } from '../shared/ipc';
+import { CLAUDE_CODE_MODELS, isClaudeCodeModel } from '../shared/claude-code';
 import importGuide from '../../../../docs/ai/import-assistant.md?raw';
 import { budgetFolders, chatContext, instructionsForAll } from './ai-tools';
 import { modelChoices, newApiChat, savedKeys, sendApiChat, stopApiChat } from './apichat';
@@ -103,7 +104,8 @@ lines, using globals for shoot days and weeks, then check the total with get_bud
 The budget's saved versions (v1.0, v1.1…) are on the Versions page. To say what changed between them,
 use compare_versions, which works it out from the history (never from imported files or the
 assumptions). When the user is about to save a version, fill in the Versions page's form with
-fill_version_form (they check it and click Save version); for a saved version use update_version.
+fill_version_form (they check it and click Save version). When they ask you to save one yourself,
+use save_version (they allow it first). For a saved version use update_version.
 Never put "What changed" in the assumptions.
 
 A budget can have branches: named lines for different plans (e.g. "25-day shoot"), each started
@@ -168,6 +170,8 @@ interface Session {
   proc: ChildProcessWithoutNullStreams;
   /** The budget folders it may read; a new one means a restart (the conversation carries on). */
   folders: string;
+  /** The model it was started with ('' for Claude Code's default); a new one means a restart too. */
+  model: string;
   busy: boolean;
 }
 
@@ -249,6 +253,7 @@ function startSession(
   cwd: string,
   folders: string[],
   files: { mcp: string; prompt: string },
+  model: string,
 ): Session {
   const args = [
     '-p',
@@ -271,13 +276,14 @@ function startSession(
     files.prompt,
   ];
   for (const folder of folders) args.push('--add-dir', folder);
+  if (model) args.push('--model', model);
   if (conversationId) args.push('--resume', conversationId);
   const proc = spawn(exe, args, {
     cwd,
     env: { ...process.env, MCP_TOOL_TIMEOUT: String(24 * 60 * 60_000) },
     windowsHide: true,
   });
-  const s: Session = { proc, folders: folders.join('\n'), busy: false };
+  const s: Session = { proc, folders: folders.join('\n'), model, busy: false };
   let pending = '';
   let errors = '';
   proc.stdout.setEncoding('utf8');
@@ -315,8 +321,8 @@ const settingsFile = () => join(app.getPath('userData'), 'chat-settings.json');
 
 interface SavedSettings {
   provider: ChatProvider;
-  /** The model chosen for each company's key. */
-  models: Partial<Record<KeyProvider, string>>;
+  /** The model chosen for Claude Code and for each company's key. */
+  models: Partial<Record<ChatProvider, string>>;
   /** The user has read what the AI sees and sends (the panel's first-use notice). */
   noticeAccepted: boolean;
 }
@@ -331,12 +337,14 @@ async function savedSettings(): Promise<SavedSettings> {
   } catch {
     // Defaults.
   }
-  const models: Partial<Record<KeyProvider, string>> = {};
+  const models: Partial<Record<ChatProvider, string>> = {};
   if (typeof saved.models === 'object' && saved.models) {
     for (const p of KEY_PROVIDERS) {
       const m = (saved.models as Record<string, unknown>)[p];
       if (typeof m === 'string' && m) models[p] = m;
     }
+    const cc = (saved.models as Record<string, unknown>)['claude-code'];
+    if (isClaudeCodeModel(cc) && cc) models['claude-code'] = cc;
   }
   const noticeAccepted = saved.noticeAccepted === true;
   // Before OpenAI and Gemini, an Anthropic key was just "api-key", with one model.
@@ -360,7 +368,10 @@ export async function chatSettings(): Promise<ChatSettings> {
   const saved = await savedSettings();
   return {
     provider: saved.provider,
-    model: saved.provider === 'claude-code' ? '' : await modelFor(saved.provider, saved),
+    model:
+      saved.provider === 'claude-code'
+        ? (saved.models['claude-code'] ?? '')
+        : await modelFor(saved.provider, saved),
     noticeAccepted: saved.noticeAccepted,
   };
 }
@@ -373,7 +384,13 @@ export async function setChatSettings(change: {
   const saved = await savedSettings();
   const provider = isProvider(change.provider) ? change.provider : saved.provider;
   const models = { ...saved.models };
-  if (provider !== 'claude-code' && typeof change.model === 'string') {
+  if (provider === 'claude-code') {
+    // Takes effect with the next message: Claude Code starts again with it, and the chat carries on.
+    if (isClaudeCodeModel(change.model)) {
+      if (change.model) models['claude-code'] = change.model;
+      else delete models['claude-code'];
+    }
+  } else if (typeof change.model === 'string') {
     if ((await modelChoices(provider)).some((m) => m.id === change.model)) models[provider] = change.model;
   }
   if (provider !== saved.provider) newChat();
@@ -421,8 +438,14 @@ export async function sendChat(
   const cwd = projectsRoot();
   await mkdir(cwd, { recursive: true });
   const folders = await budgetFolders();
-  if (session && (session.folders !== folders.join('\n') || session.proc.exitCode !== null)) stopChat();
-  if (!session) session = startSession(exe, cwd, folders, await writeConfig(mcp));
+  if (
+    session &&
+    (session.folders !== folders.join('\n') ||
+      session.model !== settings.model ||
+      session.proc.exitCode !== null)
+  )
+    stopChat();
+  if (!session) session = startSession(exe, cwd, folders, await writeConfig(mcp), settings.model);
   session.busy = true;
   session.proc.stdin.write(
     `${JSON.stringify({ type: 'user', message: { role: 'user', content: message } })}\n`,
@@ -456,7 +479,7 @@ export async function chatStatus(): Promise<ChatStatus> {
     ...settings,
     keys,
     hasKey: p !== 'claude-code' && keys[p],
-    models: p === 'claude-code' ? [] : await modelChoices(p),
+    models: p === 'claude-code' ? [...CLAUDE_CODE_MODELS] : await modelChoices(p),
     assistant: assistantName(p),
   };
   return { ...base, ...(await claudeCodeStatus()) };

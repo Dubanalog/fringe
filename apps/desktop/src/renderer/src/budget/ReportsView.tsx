@@ -6,15 +6,22 @@ import {
   REPORTS,
   budgetCsv,
   budgetTitle,
+  isEditable,
+  previousVersion,
   reportOrder,
   sortedLevels,
-  versionsNewestFirst,
 } from '@fringe/budget-engine';
 import { useState } from 'react';
 import type { ReportFormat } from '../../../shared/ipc';
-import { type ComparePair, comparePick } from './compare-pick';
+import {
+  compareFrom as pickFrom,
+  fromChoices,
+  showingLabel,
+  showingVersion,
+  sideLabel,
+} from './compare-pick';
 import { ReportPreview } from './ReportPreview';
-import { reportsWith, useReportOptions, versionLabel } from './report-options';
+import { reportsWith, useReportOptions } from './report-options';
 
 const FORMATS: readonly { id: ReportFormat; label: string }[] = [
   { id: 'pdf', label: 'Save PDF…' },
@@ -29,14 +36,14 @@ const FORMATS: readonly { id: ReportFormat; label: string }[] = [
 export function ReportsView({
   budget,
   history,
-  changes,
-  setChanges,
+  compareFrom,
+  setCompareFrom,
 }: {
   budget: Budget;
   history: BudgetHistory;
-  /** What the Changes report compares (see comparePick): version ids, null for the defaults. */
-  changes: ComparePair;
-  setChanges(pair: ComparePair): void;
+  /** The version the Comparison report compares what's showing with; null for the default. */
+  compareFrom: string | null;
+  setCompareFrom(from: string | null): void;
 }) {
   const { options: saved, setOptions, landscape, setLandscape } = useReportOptions();
   const [status, setStatus] = useState<{ text: string; error?: true } | null>(null);
@@ -72,9 +79,19 @@ export function ReportsView({
     setDragging(null);
   };
 
-  const versions = versionsNewestFirst(history.versions);
-  const { since, until } = comparePick(versions, changes.from, changes.to);
-  const doc = reportsWith(budget, history, options, since, undefined, until);
+  // The Comparison is of what's showing (its title gets the version, if it is one), from a version picked.
+  const choices = fromChoices(history);
+  const since = pickFrom(history, compareFrom);
+  const showing = showingVersion(history);
+  const version = showing
+    ? {
+        number: showing.number,
+        changes: since && previousVersion(history, showing)?.id === since.id ? showing.changes : '',
+      }
+    : undefined;
+  const doc = reportsWith(budget, history, options, since, version);
+  const choiceLabel = (v: (typeof choices)[number]) =>
+    `${sideLabel(history, v, budget.name)}${v.name ? ` · ${v.name}` : ''}`;
   const title = budgetTitle(budget);
 
   const save = async (format: ReportFormat) => {
@@ -165,7 +182,7 @@ export function ReportsView({
           </ol>
           {options.reports.includes('changes') && (
             <div className="reports-since">
-              {versions.length > 0 ? (
+              {choices.length > 0 ? (
                 <>
                   <label>
                     <span>From</span>
@@ -173,42 +190,34 @@ export function ReportsView({
                       className="text-input"
                       value={since?.id ?? ''}
                       onChange={(e) => {
-                        setChanges({ from: e.target.value, to: until?.id ?? null });
+                        setCompareFrom(e.target.value);
                         setStatus(null);
                       }}
                     >
                       {!since && <option value="">Pick a version</option>}
-                      {versions.map((v) => (
+                      {choices.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {versionLabel(v)}
+                          {choiceLabel(v)}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <label>
-                    <span>To</span>
-                    <select
-                      className="text-input"
-                      value={until?.id ?? ''}
-                      onChange={(e) => {
-                        setChanges({ from: since?.id ?? null, to: e.target.value || null });
-                        setStatus(null);
-                      }}
-                    >
-                      <option value="">The budget now</option>
-                      {versions.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {versionLabel(v)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {since && since.id === until?.id && (
-                    <p className="muted small">Both sides are the same version.</p>
-                  )}
+                  <p className="muted small">
+                    To:{' '}
+                    {showing
+                      ? showingLabel(history, budget.name)
+                      : isEditable(history)
+                        ? 'the budget now'
+                        : 'the point showing'}
+                    . To compare with another version, open it on the Versions page.
+                  </p>
                 </>
               ) : (
-                <p className="muted small">Save a version on the History page to see what changed since.</p>
+                <p className="muted small">
+                  {showing
+                    ? 'This is the first version, so there’s nothing before it to compare with.'
+                    : 'Save a version on the Versions page to see what changed since.'}
+                </p>
               )}
             </div>
           )}

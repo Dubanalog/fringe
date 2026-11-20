@@ -27,6 +27,24 @@ test('manual screenshots', async () => {
     await page.mouse.move(0, 0);
     await page.screenshot({ path: join(OUT, `${name}.png`) });
   };
+  /** A close-up of the parts of the page that `selectors` match, with a margin around them. */
+  const shotAround = async (name: string, ...selectors: string[]) => {
+    await page.waitForTimeout(500);
+    const boxes = [];
+    for (const sel of selectors) {
+      const box = await page.locator(sel).first().boundingBox();
+      if (box) boxes.push(box);
+    }
+    const m = 12;
+    const left = Math.max(0, Math.min(...boxes.map((b) => b.x)) - m);
+    const top = Math.max(0, Math.min(...boxes.map((b) => b.y)) - m);
+    const right = Math.max(...boxes.map((b) => b.x + b.width)) + m;
+    const bottom = Math.max(...boxes.map((b) => b.y + b.height)) + m;
+    await page.screenshot({
+      path: join(OUT, `${name}.png`),
+      clip: { x: left, y: top, width: right - left, height: bottom - top },
+    });
+  };
   const go = (p: Page, name: string) =>
     p.getByRole('navigation', { name: 'Main' }).getByRole('button', { name, exact: true }).click();
 
@@ -56,9 +74,23 @@ test('manual screenshots', async () => {
   await shot('crew-list');
 
   await go(page, 'Versions');
+  await page.getByRole('checkbox', { name: 'Show branches not picked' }).check();
+  // Ticking it scrolls the page down to the box; the picture starts at the top.
+  await page.evaluate(() =>
+    document.querySelectorAll('*').forEach((el) => {
+      if (el.scrollTop) el.scrollTop = 0;
+    }),
+  );
   await shot('history');
+  // Hover a version for its details, then click a Latest point for what you can do there.
+  await page.getByRole('button', { name: 'Fringe Life, v2.0' }).hover();
+  await shotAround('versions-tip', '.branch-tree', '.tree-tip');
+  await page.mouse.move(0, 0);
+  await page.getByRole('button', { name: /^Fringe Life, Latest/ }).click();
+  await shotAround('versions-menu', '.branch-tree', '.context-menu');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Fringe Life, v2.0' }).click();
-  await page.getByText('Compare with v1.1').click();
+  await page.getByText(/compare with v1.1/i).click();
   for (const name of ['Topsheet', 'Account Summary', 'Detail'])
     await page.getByRole('checkbox', { name, exact: true }).uncheck();
   await shot('compare');

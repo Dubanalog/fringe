@@ -17,7 +17,7 @@ import {
 import { type Dispatch, useState } from 'react';
 import { AccountLines } from './AccountLines';
 import { isBoolean, usePref } from './prefs';
-import { useOpenChanges } from './report-options';
+import { useOpenComparison } from './report-options';
 import { type Cell, type FooterRow, Grid, type GridColumn, type GridRow } from './Grid';
 import type { BudgetTab, TabsAction } from './tabs';
 import { keys } from '../keys';
@@ -32,12 +32,12 @@ const TOTALS_COLUMNS: readonly GridColumn[] = [
 interface Props {
   tab: BudgetTab;
   dispatch: Dispatch<TabsAction>;
-  /** Opens the Changes report: the latest saved version against the budget now. */
+  /** Opens the Comparison report: the budget showing against the version before it. */
   compare(): void;
 }
 
 export function BudgetWorkspace({ tab, dispatch, compare }: Props) {
-  const openChanges = useOpenChanges(compare);
+  const openComparison = useOpenComparison(() => compare());
   const { budget, nav } = tab;
   const category = budget.categories.find((c) => c.id === nav.categoryId) ?? null;
   const account = (category && category.accounts.find((a) => a.id === nav.accountId)) ?? null;
@@ -415,8 +415,8 @@ export function BudgetWorkspace({ tab, dispatch, compare }: Props) {
           <button
             type="button"
             className="btn btn-small"
-            title="See what changed since the latest saved version, or between any two"
-            onClick={() => openChanges({ from: null, to: null })}
+            title="See what changed since the latest saved version, or since any other"
+            onClick={() => openComparison(null)}
           >
             Compare
           </button>

@@ -2485,6 +2485,27 @@ button.tag-name {
   border-right: 1px solid var(--border);
   list-style: none;
 }
+.tree-axis-head {
+  display: flex;
+  align-items: center;
+  padding-left: 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.tree-day-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+.tree-axis-rule {
+  stroke: var(--border);
+}
+.tree-day-line {
+  stroke: var(--border);
+  stroke-dasharray: 3 3;
+}
 .tree-lane {
   display: flex;
   align-items: center;
@@ -2545,6 +2566,12 @@ button.tag-name {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  cursor: grab;
+  user-select: none;
+}
+.tree-scroll.dragging,
+.tree-scroll.dragging .tree-node {
+  cursor: grabbing;
 }
 .tree-svg {
   display: block;
@@ -2603,6 +2630,9 @@ button.tag-name {
 .tree-label {
   fill: var(--text-muted);
   font-size: 11px;
+}
+.tree-label-small {
+  font-size: 10px;
 }
 .tree-node.showing .tree-label {
   fill: var(--text);
@@ -2664,11 +2694,6 @@ button.tag-name {
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-}
-.version-tag.in {
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  background: transparent;
-  font-weight: 500;
 }
 .version-tag.next {
   border: 1px dashed var(--border);
@@ -2846,6 +2871,37 @@ button.tag-name {
 }
 .history-details {
   padding: 2px 12px 10px calc(4.8em + 20px);
+}
+.history-entry.history-version {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.history-version .version-tag {
+  flex: none;
+  margin-left: 0;
+}
+.version-details dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 16px;
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.version-details dt {
+  color: var(--text-muted);
+}
+.version-details dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.version-details-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.version-details-actions .muted {
+  margin-right: auto;
 }
 .history-details p {
   margin: 6px 0 0;

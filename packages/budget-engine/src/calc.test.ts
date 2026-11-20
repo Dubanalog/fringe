@@ -433,7 +433,7 @@ describe('compareBudgets', () => {
     expect(c.categories[0]!.accounts.map((a) => [a.number, a.status])).toEqual([['1102', 'deleted']]);
   });
 
-  it('makes the Changes report, and puts the version in the title', () => {
+  it('makes the Comparison report, and puts the version in the title', () => {
     const after = setLineNumber(budget, 'l2', 'rate', '400');
     const doc = buildReports(after, { ...DEFAULT_REPORT_OPTIONS, reports: ['changes'] }, new Date(), {
       version: '1.1',

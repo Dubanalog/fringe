@@ -1,5 +1,14 @@
 import { calculateTotals } from './calc';
-import type { Account, Budget, BudgetSettings, Category, CodeField, DetailLine } from './model';
+import { formatMoney, formatRate } from './format';
+import type {
+  Account,
+  Budget,
+  BudgetSettings,
+  Category,
+  CodeField,
+  DetailLine,
+  DisplayPrecision,
+} from './model';
 
 /**
  * What a history entry changed, worked out by comparing the budget before and after. Every edit
@@ -48,6 +57,12 @@ const shown = (v: unknown): string => {
   return String(v);
 };
 
+const isNumber = (v: unknown): v is string => typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim());
+/** A rate as the grid shows it: in full, at least cents, never rounded. */
+const asRate = (v: unknown) => (isNumber(v) ? formatRate(v) : v);
+/** Money as the budget shows it: in cents or whole dollars, as its settings say. */
+const asMoney = (v: unknown, precision: DisplayPrecision) => (isNumber(v) ? formatMoney(v, precision) : v);
+
 /** Everything that differs between two budgets, in budget order. `before` null: the first entry. */
 export function describeChange(before: Budget | null, after: Budget): ChangeDetail[] {
   if (!before || before === after) return [];
@@ -70,7 +85,7 @@ export function describeChange(before: Budget | null, after: Budget): ChangeDeta
         continue;
       }
       kept.add(c.id);
-      if (was !== c) categoryChanges(was, c, add);
+      if (was !== c) categoryChanges(was, c, add, after.settings.displayPrecision);
     }
     for (const c of before.categories) if (!kept.has(c.id)) add(categoryName(c), 'Category deleted');
     if (sameMembersMoved(before.categories, after.categories)) add('Topsheet', 'Categories reordered');
@@ -83,7 +98,7 @@ type Add = (where: string, what: string, from?: unknown, to?: unknown) => void;
 const categoryName = (c: Category) => `${c.number} ${c.description}`.trim();
 const accountName = (a: Account) => `${a.number} ${a.description}`.trim();
 
-function categoryChanges(was: Category, c: Category, add: Add): void {
+function categoryChanges(was: Category, c: Category, add: Add, precision: DisplayPrecision): void {
   const where = categoryName(c);
   if (was.number !== c.number) add(where, 'Number', was.number, c.number);
   if (was.description !== c.description) add(where, 'Description', was.description, c.description);
@@ -97,13 +112,13 @@ function categoryChanges(was: Category, c: Category, add: Add): void {
       continue;
     }
     kept.add(a.id);
-    if (before !== a) accountChanges(before, a, add);
+    if (before !== a) accountChanges(before, a, add, precision);
   }
   for (const a of was.accounts) if (!kept.has(a.id)) add(accountName(a), 'Account deleted');
   if (sameMembersMoved(was.accounts, c.accounts)) add(where, 'Accounts reordered');
 }
 
-function accountChanges(was: Account, a: Account, add: Add): void {
+function accountChanges(was: Account, a: Account, add: Add, precision: DisplayPrecision): void {
   const where = accountName(a);
   if (was.number !== a.number) add(where, 'Number', was.number, a.number);
   if (was.description !== a.description) add(where, 'Description', was.description, a.description);
@@ -134,7 +149,10 @@ function accountChanges(was: Account, a: Account, add: Add): void {
       const to = d[key];
       const differs =
         Array.isArray(from) && Array.isArray(to) ? from.join('\n') !== to.join('\n') : from !== to;
-      if (differs) add(line, name, from, to);
+      if (!differs) continue;
+      if (key === 'rate') add(line, name, asRate(from), asRate(to));
+      else if (key === 'subtotal') add(line, name, asMoney(from, precision), asMoney(to, precision));
+      else add(line, name, from, to);
     }
     for (const [key, name] of Object.entries(FORMULA_FIELDS) as [keyof typeof FORMULA_FIELDS, string][]) {
       if (before.formulas[key] !== d.formulas[key])
@@ -210,9 +228,18 @@ function settingsChanges(was: BudgetSettings, s: BudgetSettings, add: Add): void
   });
   byName(was.fringeDefs, s.fringeDefs, 'Fringe', add, (a, b, where) => {
     if (a.kind !== b.kind) add(where, 'Kind', a.kind, b.kind);
-    if (a.rate !== b.rate) add(where, a.kind === 'percent' ? 'Rate %' : 'Rate', a.rate, b.rate);
+    if (a.rate !== b.rate) {
+      if (a.kind === 'percent' && b.kind === 'percent') add(where, 'Rate %', a.rate, b.rate);
+      else
+        add(
+          where,
+          'Rate',
+          a.kind === 'percent' ? `${a.rate}%` : asRate(a.rate),
+          b.kind === 'percent' ? `${b.rate}%` : asRate(b.rate),
+        );
+    }
     if (a.unit !== b.unit) add(where, 'Unit', a.unit, b.unit);
-    if (a.cutoff !== b.cutoff) add(where, 'Cutoff', a.cutoff ?? 'none', b.cutoff ?? 'none');
+    if (a.cutoff !== b.cutoff) add(where, 'Cutoff', asRate(a.cutoff) ?? 'none', asRate(b.cutoff) ?? 'none');
   });
   byName(was.units, s.units, 'Unit', add, (a, b, where) => {
     if (a.hours !== b.hours) add(where, 'Hours', a.hours, b.hours);

@@ -258,7 +258,7 @@ export type ChatProvider = 'claude-code' | KeyProvider;
 
 export interface ChatSettings {
   provider: ChatProvider;
-  /** The model the chosen API key uses. */
+  /** The model: the one the chosen API key uses, or Claude Code's ('' for its own default). */
   model: string;
   /** The user has read the panel's first-use note on what the AI sees and where it goes. */
   noticeAccepted: boolean;
@@ -272,7 +272,7 @@ export interface ChatStatus extends ChatSettings {
   keys: Record<KeyProvider, boolean>;
   /** The chosen company has a key saved. */
   hasKey: boolean;
-  /** The models the chosen key can use, best first; empty when that isn't known yet. */
+  /** The models to pick from: Claude Code's, or the chosen key's, best first; empty when that isn't known yet. */
   models: { id: string; label: string }[];
   /** What the assistant is called: Claude, GPT or Gemini. */
   assistant: string;

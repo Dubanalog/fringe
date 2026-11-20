@@ -9,6 +9,7 @@ import {
   type KeyProvider,
   type OpenBudget,
 } from '../../../shared/ipc';
+import { slashCommandReply } from '../../../shared/claude-code';
 import { COMPANIES } from './companies';
 import { KeyForm, KeyWhere } from './KeyForm';
 
@@ -200,6 +201,19 @@ export function ChatView({
     const message = text.trim();
     if (!message || busy) return;
     const files = attached;
+    // Claude Code's commands don't work without its terminal: answer them here instead of sending.
+    const reply =
+      status?.provider === 'claude-code' && files.length === 0 ? slashCommandReply(message) : null;
+    if (reply) {
+      setItems((s) => [
+        ...s,
+        { kind: 'user', text: message, files },
+        { kind: 'assistant', parts: [{ type: 'text', text: reply }], error: null, stopped: false },
+      ]);
+      setDraft('');
+      setChatTab(target?.tab ?? null);
+      return;
+    }
     const full =
       files.length > 0
         ? `${message}\n\n(I've just added ${files.length === 1 ? 'this file' : 'these files'} to the budget's knowledge folder: ${files.join(', ')})`

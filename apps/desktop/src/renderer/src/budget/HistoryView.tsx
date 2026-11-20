@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   type BudgetVersion,
   type ChangeDetail,
@@ -26,16 +26,16 @@ import {
   versionFileName,
   versionsOn,
 } from '@fringe/budget-engine';
-import { BranchTreeView } from './BranchTreeView';
-import type { ComparePair } from './compare-pick';
-import { optionsFor, reportsWith, useOpenChanges, useReportOptions, versionLabel } from './report-options';
+import { BranchNamer, BranchTreeView } from './BranchTreeView';
+import { withVersions } from './history-timeline';
+import { optionsFor, reportsWith, useOpenComparison, useReportOptions } from './report-options';
 import type { BudgetTab } from './tabs';
 
 interface Props {
   tab: BudgetTab;
   /** Shows a point: a branch's end to work on, or an earlier point to look at. */
   open(point: { branchId: string; entryId: string; end: boolean }): void;
-  /** Starts a branch (the name already checked) from a version or a branch's end. */
+  /** Starts a branch (the name already checked) from a saved version. */
   startBranch(name: string, fromEntryId: string): void;
   renameBranch(branchId: string, name: string): void;
   setNotPicked(branchId: string, notPicked: boolean): void;
@@ -43,8 +43,8 @@ interface Props {
   copyToNew(entryId: string, version?: string, branchId?: string): void;
   saveVersion(version: BudgetVersion): void;
   deleteVersion(versionId: string): void;
-  /** Opens Reports with the Changes report, comparing these two (null: the budget now). */
-  showChanges(pair: ComparePair): void;
+  /** Opens Reports on the Comparison report: what's showing against this version (null: the one before). */
+  showComparison(from: string | null): void;
   /** Clears what the AI filled in for the "Save version" form. */
   clearDraft(): void;
 }
@@ -103,7 +103,7 @@ export function HistoryView({
   copyToNew,
   saveVersion: save,
   deleteVersion,
-  showChanges,
+  showComparison,
   clearDraft,
 }: Props) {
   const { history } = tab;
@@ -111,10 +111,16 @@ export function HistoryView({
   const from = tab.budget.forkedFrom;
   const precision = tab.budget.settings.displayPrecision;
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  /** Versions are shown open in the list; these were closed. */
+  const [closedVersions, setClosedVersions] = useState<ReadonlySet<string>>(new Set());
   const [shownCount, setShownCount] = useState(PAGE);
   /** The version being edited: 'new' for a new one. */
   const [editing, setEditing] = useState<string | null>(null);
-  const openChanges = useOpenChanges(showChanges);
+  /** The new version being saved is for starting a branch from. */
+  const [thenBranch, setThenBranch] = useState(false);
+  /** The version just saved for a branch, waiting for the branch's name. */
+  const [branchFrom, setBranchFrom] = useState<{ entryId: string; label: string } | null>(null);
+  const openComparison = useOpenComparison(showComparison);
   const editable = isEditable(history);
   // The AI filling in the form opens it.
   const adding = editing === 'new' || Boolean(tab.versionDraft);
@@ -136,10 +142,14 @@ export function HistoryView({
 
   // The changes on the branch showing; where it started from is on the tree.
   const mine = entries.map((e, i) => ({ e, i })).filter(({ e }) => e.branch === history.branch);
-  const rows = mine
-    .reverse()
-    .slice(0, shownCount)
-    .map((row, n, all) => ({ ...row, day: dayOf(row.e.at), prev: n > 0 ? all[n - 1]!.e.at : null }));
+  const shown = mine.reverse().slice(0, shownCount);
+  // Each version saved on this branch has a row of its own, where it was saved.
+  const rows = withVersions(
+    shown,
+    versions,
+    (id) => findEntry(history, id)?.at,
+    shown.length === mine.length,
+  ).map((item, n, all) => ({ item, day: dayOf(item.at), prev: n > 0 ? all[n - 1]!.at : null }));
 
   return (
     <section className="view view-scroll">
@@ -158,7 +168,8 @@ export function HistoryView({
       <div className="versions">
         <div className="versions-head">
           <h2>Branches</h2>
-          {!adding && (
+          {/* Hidden while a form is open: editing a saved version's details doesn't save a new one. */}
+          {!adding && !editingVersion && (
             <button
               type="button"
               className="btn btn-primary"
@@ -174,10 +185,26 @@ export function HistoryView({
           <VersionForm
             tab={tab}
             version={null}
-            save={save}
+            thenBranch={thenBranch}
+            save={(v) => {
+              save(v);
+              if (thenBranch) setBranchFrom({ entryId: v.entryId, label: `${branchTitle} v${v.number}` });
+            }}
             close={() => {
               setEditing(null);
+              setThenBranch(false);
               if (tab.versionDraft) clearDraft();
+            }}
+          />
+        )}
+        {branchFrom && (
+          <BranchNamer
+            history={history}
+            from={branchFrom.label}
+            close={() => setBranchFrom(null)}
+            create={(name) => {
+              startBranch(name, branchFrom.entryId);
+              setBranchFrom(null);
             }}
           />
         )}
@@ -195,9 +222,19 @@ export function HistoryView({
           tab={tab}
           open={openPoint}
           startBranch={startBranch}
+          saveThenBranch={(branchId) => {
+            const b = findBranch(history, branchId);
+            if (!b) return;
+            if (!(history.branch === branchId && editable)) {
+              openPoint({ branchId, entryId: b.head, end: true });
+            }
+            setBranchFrom(null);
+            setThenBranch(true);
+            setEditing('new');
+          }}
           renameBranch={renameBranch}
           setNotPicked={setNotPicked}
-          showChanges={openChanges}
+          showComparison={openComparison}
           editVersion={(id) => setEditing(id)}
           deleteVersion={(v) => {
             if (window.confirm(`Delete v${v.number}? The budget's history stays; only the version goes.`))
@@ -209,16 +246,37 @@ export function HistoryView({
 
       <h2>Changes on {branchTitle}</h2>
       <ol className="history-list">
-        {rows.map(({ e, i, day, prev }) => {
+        {rows.map(({ item, day, prev }) => {
+          const heading = prev === null || dayOf(prev) !== day;
+          if (item.kind === 'version') {
+            const v = item.version;
+            const shut = closedVersions.has(v.id);
+            return (
+              <Fragment key={v.id}>
+                {heading && <li className="history-day">{day}</li>}
+                <VersionRow
+                  tab={tab}
+                  version={v}
+                  expanded={!shut}
+                  toggle={() => {
+                    const next = new Set(closedVersions);
+                    if (!next.delete(v.id)) next.add(v.id);
+                    setClosedVersions(next);
+                  }}
+                  edit={() => setEditing(v.id)}
+                />
+              </Fragment>
+            );
+          }
+          const { e, i } = item;
           const before = parentEntry(tab.history, e)?.budget ?? null;
           const details = describeChange(before, e.budget);
           const total = grandTotal(e.budget);
           const delta = before ? toDecimal(total).minus(grandTotal(before)) : null;
           const expanded = open.has(e.id);
-          const heading = prev === null || dayOf(prev) !== day;
           const state = i === current ? 'now' : path.has(e.id) ? null : 'undone';
-          const tags = versionsAt.get(e.id) ?? [];
-          const partOf = tags.length === 0 ? inVersion.get(e.id) : undefined;
+          // Each version has a row above the changes that went into it, so only changes in none are marked.
+          const inAVersion = (versionsAt.get(e.id)?.length ?? 0) > 0 || inVersion.has(e.id);
           return (
             <Fragment key={e.id}>
               {heading && <li className="history-day">{day}</li>}
@@ -239,20 +297,7 @@ export function HistoryView({
                     </span>
                     <span className="history-label">
                       {title(e, details)}
-                      {tags.map((v) => (
-                        <span key={v.id} className="version-tag" title={versionLabel(v)}>
-                          v{v.number}
-                        </span>
-                      ))}
-                      {partOf && (
-                        <span
-                          className="version-tag in"
-                          title={`This change went into ${versionLabel(partOf)}.`}
-                        >
-                          v{partOf.number}
-                        </span>
-                      )}
-                      {!partOf && tags.length === 0 && versions.length > 0 && state !== 'undone' && (
+                      {!inAVersion && versions.length > 0 && state !== 'undone' && (
                         <span
                           className="version-tag next"
                           title="Not in a saved version yet: it will be in the next one."
@@ -345,15 +390,119 @@ export function HistoryView({
   );
 }
 
+/** A date typed as YYYY-MM-DD, e.g. "Nov 20" (with the year when it isn't this year). */
+function sentDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    ...(y === new Date().getFullYear() ? {} : { year: 'numeric' }),
+  });
+}
+
+/** A saved version in the list of changes: its details, open to read without editing. */
+function VersionRow({
+  tab,
+  version: v,
+  expanded,
+  toggle,
+  edit,
+}: {
+  tab: BudgetTab;
+  version: BudgetVersion;
+  expanded: boolean;
+  toggle(): void;
+  edit(): void;
+}) {
+  const budget = versionBudget(tab.history, v);
+  const total = budget ? grandTotal(budget) : null;
+  const before = previousVersion(tab.history, v);
+  const sent = v.sentOn
+    ? `Sent ${sentDate(v.sentOn)}${v.sentTo ? ` to ${v.sentTo}` : ''}`
+    : v.sentTo
+      ? `To ${v.sentTo}`
+      : 'Not sent';
+  return (
+    <li className={`history-entry history-version${expanded ? ' expanded' : ''}`}>
+      <div className="history-row">
+        <button type="button" className="history-summary" aria-expanded={expanded} onClick={toggle}>
+          <time dateTime={v.savedAt} title={`Created ${fullTime(v.savedAt)}`}>
+            {time(v.savedAt)}
+          </time>
+          <span className="version-tag">v{v.number}</span>
+          <span className="history-label">
+            {v.name || `Version ${v.number}`}
+            <span className="history-state"> {sent}</span>
+          </span>
+          {total && (
+            <span className="history-delta num" title="Total">
+              {formatMoney(total, budget!.settings.displayPrecision)}
+            </span>
+          )}
+          <span className="history-chevron" aria-hidden="true">
+            ▸
+          </span>
+        </button>
+      </div>
+      {expanded && (
+        <div className="history-details version-details">
+          <dl>
+            {v.sentOn && (
+              <>
+                <dt>Sent on</dt>
+                <dd>{sentDate(v.sentOn)}</dd>
+              </>
+            )}
+            {v.sentTo && (
+              <>
+                <dt>Sent to</dt>
+                <dd>{v.sentTo}</dd>
+              </>
+            )}
+            {v.notes.trim() && (
+              <>
+                <dt>Notes</dt>
+                <dd>{v.notes}</dd>
+              </>
+            )}
+            <dt>{before ? `What changed since v${before.number}` : 'What changed'}</dt>
+            <dd>{v.changes.trim() || <span className="muted">Not written. Edit details to add it.</span>}</dd>
+          </dl>
+          <div className="version-details-actions">
+            <span className="muted small">Created {fullTime(v.savedAt)}</span>
+            <button type="button" className="btn btn-small" onClick={edit}>
+              Edit details…
+            </button>
+            {v.pdf && tab.project && (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => void window.fringe.revealVersionPdf(tab.project!, v.pdf!)}
+              >
+                Show PDF
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** Saves a new version (of the budget showing now) or changes one, optionally with its PDF. */
 function VersionForm({
   tab,
   version,
+  thenBranch = false,
   save,
   close,
 }: {
   tab: BudgetTab;
   version: BudgetVersion | null;
+  /** Saved to start a branch from: the branch's name is asked for next. */
+  thenBranch?: boolean;
   save(version: BudgetVersion): void;
   close(): void;
 }) {
@@ -381,6 +530,12 @@ function VersionForm({
   const [pdf, setPdf] = useState(version === null && tab.project !== null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Opened from a version far down the list, the form is brought into view.
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    // In braces: scrollIntoView can return a promise, which React would take for a cleanup function.
+    formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [version?.id]);
 
   const entryId = version?.entryId ?? history.entries[history.current]!.id;
   const budget = findEntry(history, entryId)?.budget ?? tab.budget;
@@ -444,13 +599,20 @@ function VersionForm({
 
   return (
     <form
+      ref={formRef}
       className="version-form"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
       }}
     >
-      <h3>{version ? `Edit v${version.number}` : 'Save the budget as it is now as a version'}</h3>
+      <h3>
+        {version
+          ? `Edit v${version.number}`
+          : thenBranch
+            ? 'Save the budget as it is now as a version, then start a branch from it'
+            : 'Save the budget as it is now as a version'}
+      </h3>
       <div className="version-fields">
         <label>
           <span>Version</span>
@@ -540,7 +702,7 @@ function VersionForm({
             {version?.pdf ? 'Save the PDF again' : 'Save a PDF of the reports'} as “{pdfName}.pdf” in the
             project’s versions folder
             {previous && options.reports.includes('changes')
-              ? `, with the changes since v${previous.number}`
+              ? `, with the comparison to v${previous.number}`
               : ''}
           </span>
         </label>
@@ -555,7 +717,13 @@ function VersionForm({
       )}
       <div className="actions actions-left">
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : version ? 'Save' : 'Save version'}
+          {busy
+            ? 'Saving…'
+            : version
+              ? 'Save'
+              : thenBranch
+                ? 'Save version, then name the branch'
+                : 'Save version'}
         </button>
         <button type="button" className="btn" onClick={close} disabled={busy}>
           Cancel

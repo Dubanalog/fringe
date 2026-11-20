@@ -12,12 +12,14 @@ Fringe runs a small MCP server so an AI app can read and edit the budgets open i
   globals, units, groups, codes, numbering, options, report title and assumptions), and the `import_assistant` prompt
   (`docs/ai/import-assistant.md`). `version-tools.ts` reads and compares the saved versions
   (`list_versions`, `compare_versions`, worked out from the history like the version form's fill
-  button), fills in the "Save version" form for the user to check and save (`fill_version_form`), and changes
+  button), fills in the "Save version" form for the user to check and save (`fill_version_form`), saves a
+  version itself when the user asks (`save_version`, allowed first, as with an edit, and with no PDF), and changes
   a saved version's details (`update_version`). Tool calls run in the window; edits go into the budget's
   history as "AI: …" and are saved.
 - **Branches:** `list_branches` lists the main line and the named branches, where each started,
-  its versions and what the user is looking at. `create_branch` starts one from a version or a
-  branch's latest (the user allows it, as with an edit) and shows it, so the AI's next edits go on
+  its versions and what the user is looking at. `create_branch` starts one from a saved version
+  (the user allows it, as with an edit; to start from a branch's latest, the user saves a version
+  there first) and shows it, so the AI's next edits go on
   it. Each branch numbers its own versions, so `list_versions` and `update_version` take a
   `branch`, and `compare_versions` a `fromBranch` and `toBranch`; left out, they mean the branch
   showing. When the user is looking at a version or an earlier point, edits are refused before

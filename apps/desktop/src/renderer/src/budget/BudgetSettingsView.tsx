@@ -49,7 +49,6 @@ import { Percentages, TaxIncentives } from './Percentages';
 import { ColorPick } from './ColorPick';
 import { FringeLibraryPicker } from './FringeLibrary';
 import { usePref } from './prefs';
-import { ThemePicker } from '../theme/ThemePicker';
 
 interface Props {
   budget: Budget;
@@ -235,11 +234,6 @@ export function BudgetSettingsView({ budget, update }: Props) {
             name={budget.name}
             onCommit={(title) => update(updateSettings(budget, { ...s, title }), 'Report title')}
           />
-          <fieldset>
-            <legend>Theme</legend>
-            <ThemePicker />
-            <p className="muted small">The theme applies to every budget. It&apos;s also in Settings.</p>
-          </fieldset>
           <fieldset>
             <legend>Show money as</legend>
             <Radio

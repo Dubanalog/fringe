@@ -23,7 +23,8 @@ export interface TreeRow {
  * - `version`: a saved version;
  * - `latest`: the end of a branch that isn't a version yet (drawn dashed);
  * - `start`: where a branch was started from a branch's end that has moved on since, so it's
- *   neither of the others (a small dot).
+ *   neither of the others (a small dot). Only older budgets have these: a branch now starts only
+ *   from a saved version.
  */
 export interface TreeNode {
   key: string;
@@ -38,6 +39,10 @@ export interface TreeNode {
   end: boolean;
   /** The point showing in the tab. */
   showing: boolean;
+  /** A branch's Latest point when nothing has changed on it since it was started. */
+  empty: boolean;
+  /** When it happened: a version's save, a change, or when a branch with no changes was started. */
+  at: string;
 }
 
 /** A line from the point a branch started at to the branch's first node. */
@@ -122,7 +127,7 @@ export function branchTree(history: BudgetHistory, budgetName: string): TreeLayo
   const rowOf = new Map(rows.map((r) => [r.branch.id, r.row]));
 
   const showingEntry = history.entries[history.current]?.id;
-  const nodes: (Omit<TreeNode, 'col'> & { at: string })[] = [];
+  const nodes: Omit<TreeNode, 'col'>[] = [];
   for (const { branch, row } of rows) {
     const versions = [...versionsOn(history, branch.id)].sort((a, b) => a.savedAt.localeCompare(b.savedAt));
     const showingHere = history.branch === branch.id;
@@ -136,6 +141,7 @@ export function branchTree(history: BudgetHistory, budgetName: string): TreeLayo
         version: v,
         end: false,
         showing: showingHere && v.entryId === showingEntry,
+        empty: false,
         at: v.savedAt,
       });
     }
@@ -154,6 +160,7 @@ export function branchTree(history: BudgetHistory, budgetName: string): TreeLayo
         version: null,
         end: true,
         showing: showingHere && branch.head === showingEntry,
+        empty: branch.id !== MAIN_BRANCH && branch.head === branch.from,
         // A branch with no changes yet ends where it was started, at the time it was started.
         at: [entryAt.get(branch.head)?.at ?? '', branch.id === MAIN_BRANCH ? '' : branch.createdAt]
           .sort()
@@ -181,6 +188,7 @@ export function branchTree(history: BudgetHistory, budgetName: string): TreeLayo
         version: null,
         end: false,
         showing: false,
+        empty: false,
         at: entryAt.get(branch.from)?.at ?? branch.createdAt,
       };
       nodes.push(from);
@@ -215,7 +223,39 @@ export function branchTree(history: BudgetHistory, budgetName: string): TreeLayo
   const used = [...new Set(col.values())].sort((a, b) => a - b);
   const packed = new Map(used.map((c, i) => [c, i]));
   const placed: TreeNode[] = nodes
-    .map(({ at: _at, ...n }) => ({ ...n, col: packed.get(col.get(n.key)!)! }))
+    .map((n) => ({ ...n, col: packed.get(col.get(n.key)!)! }))
     .sort((a, b) => a.row - b.row || a.col - b.col);
   return { rows, nodes: placed, links, cols: used.length };
+}
+
+/** Where a new day starts on the tree: the first column on it, and the day (as `dayOf` gives it). */
+export interface DayMark {
+  col: number;
+  day: string;
+}
+
+const localDay = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * The columns where a new day starts, for the date row above the tree. A column's day is its
+ * earliest point's. Columns keep the order things happened in, not the time between them, so these
+ * marks are what says when. A day never comes before one already marked (a clock change can't
+ * send the row backwards).
+ */
+export function dayMarks(tree: TreeLayout, dayOf: (iso: string) => string = localDay): DayMark[] {
+  const first = new Map<number, string>();
+  for (const n of tree.nodes) {
+    const was = first.get(n.col);
+    if (was === undefined || n.at < was) first.set(n.col, n.at);
+  }
+  const marks: DayMark[] = [];
+  for (const col of [...first.keys()].sort((a, b) => a - b)) {
+    const day = dayOf(first.get(col)!);
+    const last = marks.at(-1);
+    if (!last || day > last.day) marks.push({ col, day });
+  }
+  return marks;
 }

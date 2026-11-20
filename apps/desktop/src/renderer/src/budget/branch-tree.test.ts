@@ -13,7 +13,7 @@ import {
   startHistory,
 } from '@fringe/budget-engine';
 import { describe, expect, it } from 'vitest';
-import { branchTree, withoutNotPicked } from './branch-tree';
+import { branchTree, dayMarks, withoutNotPicked } from './branch-tree';
 
 let clock = 0;
 /** Times in order, so saves and changes sort the way they happened. */
@@ -23,7 +23,7 @@ const edit = (h: BudgetHistory, label: string) =>
   recordChange(h, { ...currentBudget(h), name: label }, label, tick());
 const save = (h: BudgetHistory, number: string) => saveVersion(h, { ...fields, number }, tick());
 
-/** What a row shows, left to right: "1.0", "Latest" or "·" (a start dot), with its column. */
+/** What a row shows, left to right: "1.0", "Latest", "Empty" (no changes yet) or "·" (a start dot), with its column. */
 function picture(h: BudgetHistory) {
   const t = branchTree(h, 'Pilot');
   return t.rows.map((r) => [
@@ -32,7 +32,8 @@ function picture(h: BudgetHistory) {
     t.nodes
       .filter((n) => n.row === r.row)
       .map(
-        (n) => `${n.col}:${n.kind === 'version' ? n.version!.number : n.kind === 'latest' ? 'Latest' : '·'}`,
+        (n) =>
+          `${n.col}:${n.kind === 'version' ? n.version!.number : n.kind === 'latest' ? (n.empty ? 'Empty' : 'Latest') : '·'}`,
       )
       .join(' '),
   ]);
@@ -88,7 +89,7 @@ describe('branchTree', () => {
       ['Pilot', 0, '0:1.0 1:1.1 5:1.2'],
       ['25-day shoot', 1, '2:1.0'],
       ['No overtime', 2, '3:Latest'],
-      ['Union crew', 1, '4:Latest'],
+      ['Union crew', 1, '4:Empty'],
     ]);
     const t = branchTree(h, 'Pilot');
     const key = (row: number, col: number) => t.nodes.find((n) => n.row === row && n.col === col)!.key;
@@ -101,15 +102,19 @@ describe('branchTree', () => {
     expect(t.nodes.filter((n) => n.showing).map((n) => n.key)).toEqual([key(0, 5)]);
   });
 
-  it('marks where a branch started from an end that has moved on since', () => {
+  it('marks where an older budget started a branch from an end that has moved on since', () => {
     const { h: start } = pilot();
     const end = activeBranch(start).head;
-    let h = createBranch(start, 'Alt', end, tick()).history;
-    h = edit(openBranch(h, MAIN_BRANCH), 'After');
+    const at = tick();
+    // Branches now start only from versions; older budgets could start one from a branch's end.
+    const alt = { id: 'alt', name: 'Alt', from: end, head: end, createdAt: at, notPicked: false };
+    const h = edit({ ...start, branches: [...start.branches, alt] }, 'After');
     expect(picture(h)).toEqual([
       ['Pilot', 0, '0:1.0 1:1.1 2:· 4:Latest'],
-      ['Alt', 1, '3:Latest'],
+      ['Alt', 1, '3:Empty'],
     ]);
+    const dot = branchTree(h, 'Pilot').nodes.find((n) => n.kind === 'start')!;
+    expect(dot.at).toBe(start.entries.find((e) => e.id === end)!.at);
   });
 
   it('shows the point a read-only look is at', () => {
@@ -151,5 +156,30 @@ describe('branchTree', () => {
       ['Pilot', 0, '0:1.0 1:1.1 2:Latest'],
       ['Alt', 1, '2:Latest'],
     ]);
+  });
+});
+
+describe('dayMarks', () => {
+  it('marks the first column of each new day, going left to right', () => {
+    const { h } = pilot();
+    const t = branchTree(h, 'Pilot');
+    // Each second stands for a day here: columns 0, 1 and 2 start at seconds 1, 3 and 4.
+    const marks = dayMarks(t, (iso) => `d${new Date(iso).getUTCSeconds()}`);
+    expect(marks.map((m) => m.col)).toEqual([0, 1, 2]);
+    // All on one day: one mark, at the start.
+    expect(dayMarks(t, () => '2026-11-20')).toEqual([{ col: 0, day: '2026-11-20' }]);
+  });
+
+  it('never marks a day earlier than one already shown', () => {
+    const { h: start, v11 } = pilot();
+    const made = createBranch(start, 'Alt', v11.entryId, '2000-01-01T00:00:00.000Z');
+    const h = recordChange(
+      made.history,
+      { ...currentBudget(made.history), name: 'X' },
+      'X',
+      '2000-01-01T00:00:01.000Z',
+    );
+    const marks = dayMarks(branchTree(h, 'Pilot'), (iso) => iso.slice(0, 10));
+    expect(marks).toEqual([{ col: 0, day: '2026-11-20' }]);
   });
 });

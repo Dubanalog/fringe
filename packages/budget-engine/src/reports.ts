@@ -67,8 +67,8 @@ export const REPORTS: readonly { id: ReportId; name: string; description: string
   },
   {
     id: 'changes',
-    name: 'Changes',
-    description: 'What changed between two versions, or since one: the totals on each side, and each change.',
+    name: 'Comparison',
+    description: 'What’s showing compared with a version picked: the totals on each side, and each change.',
   },
 ];
 
@@ -150,7 +150,7 @@ const fixed = (v: Decimal) => v.toFixed();
 export interface ReportExtras {
   /** The version these reports are, e.g. "1.1": the title becomes "Pilot v1.1". */
   version?: string;
-  /** For the Changes report: the budget to compare with, e.g. as it was at v1.0. */
+  /** For the Comparison report: the budget to compare with, e.g. as it was at v1.0. */
   compare?: {
     /** e.g. "v1.0". */
     label: string;

@@ -14,13 +14,14 @@ import {
   projectFolderName,
   recordChange,
   saveVersion,
+  setNotPicked,
   startHistory,
   storeEvent,
 } from '../../packages/budget-engine/src/index';
 
 /**
  * "Fringe Life", the sample budget in the manual's screenshots: a small independent feature with a
- * few weeks of history and three saved versions. Every rate in it is a made-up round number for
+ * few weeks of history, versions on three branches, and one branch not picked. Every rate in it is a made-up round number for
  * the pictures, not a real union or payroll rate.
  */
 
@@ -467,6 +468,7 @@ export function buildHistory(): BudgetHistory {
     'Answers the studio note to bring the budget down.',
     'Shoot cut from 25 to 22 days. VFX down 40,000. Drone cut. Two fewer diner days.',
   );
+  const v20 = history.entries[history.current]!.id;
 
   // A branch that keeps the 25-day schedule, for the producers to compare.
   day = new Date('2026-11-04T16:00:00Z');
@@ -481,6 +483,14 @@ export function buildHistory(): BudgetHistory {
     'Keeps all 25 shoot days; VFX at the studio number.',
     'From v1.1 with VFX down 40,000.',
   );
+
+  // A deeper cut the studio looked at and passed on.
+  day = new Date('2026-11-09T16:00:00Z');
+  const cut = createBranch(history, '20-day shoot', v20, at(0));
+  history = cut.history;
+  budget = history.entries[history.current]!.budget;
+  run('set_global', { name: 'SHOOT', value: '20' }, 'SHOOT = 20');
+  history = setNotPicked(history, cut.branch.id, true);
   history = openBranch(history, MAIN_BRANCH);
   budget = history.entries[history.current]!.budget;
 

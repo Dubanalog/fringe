@@ -12,8 +12,7 @@ import {
   grandTotal,
   previousVersion,
 } from '@fringe/budget-engine';
-import { type TreeLayout, type TreeNode, branchTree, withoutNotPicked } from './branch-tree';
-import type { ComparePair } from './compare-pick';
+import { type TreeLayout, type TreeNode, branchTree, dayMarks, withoutNotPicked } from './branch-tree';
 import { ContextMenu, type MenuEntry } from './ContextMenu';
 import { versionLabel } from './report-options';
 import type { BudgetTab } from './tabs';
@@ -22,11 +21,14 @@ interface Props {
   tab: BudgetTab;
   /** Shows a point: a branch's end to work on, or an earlier point to look at. */
   open(node: { branchId: string; entryId: string; end: boolean }): void;
-  /** Starts a branch from a version or a branch's end. The name is already checked. */
+  /** Starts a branch from a saved version. The name is already checked. */
   startBranch(name: string, fromEntryId: string): void;
+  /** Opens a branch's latest and the "Save version" form, then asks for a branch's name. */
+  saveThenBranch(branchId: string): void;
   renameBranch(branchId: string, name: string): void;
   setNotPicked(branchId: string, notPicked: boolean): void;
-  showChanges(pair: ComparePair): void;
+  /** Opens the Comparison report: what's showing against this version. */
+  showComparison(from: string): void;
   editVersion(versionId: string): void;
   deleteVersion(version: BudgetVersion): void;
   /** Opens a copy of the budget at this point as a budget of its own. */
@@ -37,6 +39,8 @@ interface Props {
 const ROW = 64;
 const COL = 60;
 const PAD = 28;
+/** Height of the date row across the top. */
+const AXIS = 22;
 /** Lane colours; the main line is first. */
 const LANES = 4;
 
@@ -49,7 +53,7 @@ export const shortDate = (ymd: string) => {
 };
 
 const x = (n: TreeNode) => PAD + n.col * COL;
-const y = (n: TreeNode) => ROW / 2 + n.row * ROW;
+const y = (n: TreeNode) => AXIS + ROW / 2 + n.row * ROW;
 
 /**
  * The budget's branches as rows of points, left to right in the order they happened: each saved
@@ -104,17 +108,30 @@ export function BranchTreeView(props: Props) {
         label: 'Start a branch from here…',
         onSelect: () => setNaming({ from: n.entryId, label: pointLabel(tree, n) }),
       });
+    } else if (n.kind === 'latest') {
+      // A branch starts only from a version: save one here first.
+      items.push({
+        label: 'Save a version, then start a branch…',
+        onSelect: () => props.saveThenBranch(n.branchId),
+      });
     }
     if (v) {
       const before = previousVersion(history, v);
-      items.push('separator', {
-        label: `Changes since v${v.number}`,
-        onSelect: () => props.showChanges({ from: v.id, to: null }),
-      });
+      items.push('separator');
       if (before) {
+        // Opens this version, then compares it with the one before.
         items.push({
-          label: `Compare with v${before.number}`,
-          onSelect: () => props.showChanges({ from: before.id, to: v.id }),
+          label: n.showing ? `Compare with v${before.number}` : `Open and compare with v${before.number}`,
+          onSelect: () => {
+            if (!n.showing) props.open({ branchId: n.branchId, entryId: n.entryId, end: n.end });
+            props.showComparison(before.id);
+          },
+        });
+      }
+      if (!n.showing) {
+        items.push({
+          label: `Compare what’s showing with v${v.number}`,
+          onSelect: () => props.showComparison(v.id),
         });
       }
       if (v.pdf && tab.project) {
@@ -164,8 +181,67 @@ export function BranchTreeView(props: Props) {
     });
   };
 
+  // Press and drag to move around the tree: sideways in its box, up and down with the page.
+  const drag = useRef<{
+    x: number;
+    y: number;
+    left: number;
+    top: number;
+    page: HTMLElement | null;
+    moved: boolean;
+  } | null>(null);
+  const dragged = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const dragHandlers = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || e.pointerType === 'touch') return;
+      const el = e.currentTarget;
+      drag.current = {
+        x: e.clientX,
+        y: e.clientY,
+        left: el.scrollLeft,
+        top: 0,
+        page: scrollParent(el),
+        moved: false,
+      };
+      drag.current.top = drag.current.page?.scrollTop ?? 0;
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = drag.current;
+      if (!d) return;
+      const dx = e.clientX - d.x;
+      const dy = e.clientY - d.y;
+      if (!d.moved) {
+        if (Math.abs(dx) + Math.abs(dy) < 5) return;
+        d.moved = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDragging(true);
+        setTip(null);
+      }
+      e.currentTarget.scrollLeft = d.left - dx;
+      if (d.page) d.page.scrollTop = d.top - dy;
+    },
+    onPointerUp: () => {
+      // A drag isn't a click: the point it ended on doesn't open its menu.
+      dragged.current = !!drag.current?.moved;
+      drag.current = null;
+      setDragging(false);
+    },
+    onPointerCancel: () => {
+      drag.current = null;
+      setDragging(false);
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!dragged.current) return;
+      dragged.current = false;
+      e.stopPropagation();
+      e.preventDefault();
+    },
+  };
+
   const width = PAD * 2 + Math.max(0, tree.cols - 1) * COL + 24;
-  const height = tree.rows.length * ROW;
+  const height = AXIS + tree.rows.length * ROW;
+  const days = dayMarks(tree);
 
   return (
     <div className="branch-tree" ref={wrap}>
@@ -182,6 +258,9 @@ export function BranchTreeView(props: Props) {
       )}
       <div className="tree-body">
         <ul className="tree-lanes">
+          <li className="tree-axis-head" style={{ height: AXIS }} aria-hidden="true">
+            Earlier → Later
+          </li>
           {tree.rows.map((r) => (
             <li
               key={r.branch.id}
@@ -213,14 +292,28 @@ export function BranchTreeView(props: Props) {
             </li>
           ))}
         </ul>
-        <div className="tree-scroll">
+        <div className={dragging ? 'tree-scroll dragging' : 'tree-scroll'} {...dragHandlers}>
           <svg
             width={width}
             height={height}
+            style={{ minWidth: '100%' }}
             className="tree-svg"
             role="group"
             aria-label="Versions by branch"
           >
+            <line className="tree-axis-rule" x1={0} y1={AXIS - 0.5} x2="100%" y2={AXIS - 0.5} />
+            {days.map((d) => {
+              // A new day starts halfway between its column and the one before.
+              const at = d.col === 0 ? 0 : PAD + d.col * COL - COL / 2;
+              return (
+                <g key={`day:${d.day}`} className="tree-day">
+                  {d.col > 0 && <line className="tree-day-line" x1={at} y1={4} x2={at} y2={height} />}
+                  <text className="tree-day-label" x={at + (d.col === 0 ? 8 : 5)} y={15}>
+                    {dayLabel(d.day)}
+                  </text>
+                </g>
+              );
+            })}
             {tree.rows.map((r) => {
               const mine = tree.nodes.filter((n) => n.row === r.row);
               const first = mine[0];
@@ -253,7 +346,11 @@ export function BranchTreeView(props: Props) {
             {tree.nodes.map((n) => {
               const notPicked = tree.rows[n.row]!.branch.notPicked;
               const label =
-                n.kind === 'version' ? `v${n.version!.number}` : n.kind === 'latest' ? 'Latest' : '';
+                n.kind === 'version'
+                  ? `v${n.version!.number}`
+                  : n.kind === 'latest'
+                    ? latestLabel(n)
+                    : shortWhen(n.at);
               return (
                 <g
                   key={n.key}
@@ -262,7 +359,9 @@ export function BranchTreeView(props: Props) {
                   role="button"
                   tabIndex={0}
                   aria-label={`${tree.rows[n.row]!.name}, ${label || 'earlier point'}${n.showing ? ', showing' : ''}`}
-                  onMouseEnter={(e) => !menu && setTip({ node: n, ...place(e.currentTarget) })}
+                  onMouseEnter={(e) =>
+                    !menu && !drag.current?.moved && setTip({ node: n, ...place(e.currentTarget) })
+                  }
                   onMouseLeave={() => setTip(null)}
                   onFocus={(e) => !menu && setTip({ node: n, ...place(e.currentTarget) })}
                   onBlur={() => setTip(null)}
@@ -278,7 +377,11 @@ export function BranchTreeView(props: Props) {
                   {/* A bigger target than the dot. */}
                   <circle className="tree-hit" r={16} />
                   {label && (
-                    <text className="tree-label" y={25} textAnchor="middle">
+                    <text
+                      className={n.kind === 'start' ? 'tree-label tree-label-small' : 'tree-label'}
+                      y={n.kind === 'start' ? 18 : 25}
+                      textAnchor="middle"
+                    >
                       {label}
                     </text>
                   )}
@@ -316,17 +419,53 @@ export function BranchTreeView(props: Props) {
   );
 }
 
+/** The box that scrolls the page up and down around an element, if any. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const y = getComputedStyle(p).overflowY;
+    if ((y === 'auto' || y === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+  }
+  return null;
+}
+
 /** Whether the point showing is the end of its branch. */
 function isEnd(history: BudgetHistory): boolean {
   const b = history.branches.find((x) => x.id === history.branch);
   return b !== undefined && history.entries[history.current]?.id === b.head;
 }
 
+/** When a start dot's point was: the time today, or the date. */
+/** A day in the date row: "Today", "Yesterday" or a short date, with the year when it isn't this one. */
+function dayLabel(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const day = new Date(y!, m! - 1, d!);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const ago = Math.round((today.getTime() - day.getTime()) / 86_400_000);
+  if (ago === 0) return 'Today';
+  if (ago === 1) return 'Yesterday';
+  return day.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    ...(day.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+  });
+}
+
+function shortWhen(iso: string): string {
+  const d = new Date(iso);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+/** A branch's end that isn't a version: "No changes yet" until something is changed on it. */
+const latestLabel = (n: TreeNode) => (n.empty ? 'No changes yet' : 'Latest');
+
 /** "v1.1", "Latest" or "an earlier point", with the branch's name. */
 function pointLabel(tree: TreeLayout, n: TreeNode): string {
   const name = tree.rows[n.row]!.name;
   if (n.version) return `${name} v${n.version.number}`;
-  return n.kind === 'latest' ? `${name}, latest` : `${name}, an earlier point`;
+  return n.kind === 'latest' ? `${name}, latest` : `${name} at ${shortWhen(n.at)}`;
 }
 
 /** Under a branch's name: where it came from, and whether it was picked. */
@@ -348,7 +487,7 @@ function TipText({ tab, tree, node: n }: { tab: BudgetTab; tree: TreeLayout; nod
   const precision = tab.budget.settings.displayPrecision;
   let when: string;
   if (v) {
-    when = v.sentOn ? `Sent ${shortDate(v.sentOn)}` : `Saved ${fullTime(v.savedAt)}`;
+    when = `Created ${fullTime(v.savedAt)}`;
   } else if (n.kind === 'latest') {
     const line = branchLine(history, n.branchId);
     const lastVersion = tree.nodes.filter((x) => x.row === n.row && x.version).at(-1)?.version;
@@ -359,6 +498,7 @@ function TipText({ tab, tree, node: n }: { tab: BudgetTab; tree: TreeLayout; nod
     const since = lastVersion ? `v${lastVersion.number}` : 'it started';
     when =
       count === 0 ? `No changes since ${since}` : `${count} change${count === 1 ? '' : 's'} since ${since}`;
+    if (count > 0) when += ` · last ${fullTime(n.at)}`;
   } else {
     const at = findEntry(history, n.entryId)?.at;
     when = at ? `Changed ${fullTime(at)}` : '';
@@ -366,10 +506,17 @@ function TipText({ tab, tree, node: n }: { tab: BudgetTab; tree: TreeLayout; nod
   return (
     <>
       <div className="tree-tip-title">
-        {tree.rows[n.row]!.name} · {v ? versionLabel(v) : n.kind === 'latest' ? 'Latest' : 'an earlier point'}
+        {tree.rows[n.row]!.name} ·{' '}
+        {v ? versionLabel(v) : n.kind === 'latest' ? latestLabel(n) : 'where a branch started'}
       </div>
       <div className="muted">{when}</div>
-      {v?.sentTo && <div className="muted">To {v.sentTo}</div>}
+      {v?.sentOn && (
+        <div className="muted">
+          Sent {shortDate(v.sentOn)}
+          {v.sentTo && ` to ${v.sentTo}`}
+        </div>
+      )}
+      {v?.sentTo && !v.sentOn && <div className="muted">To {v.sentTo}</div>}
       {budget && <div className="tree-tip-total num">{formatMoney(grandTotal(budget), precision)}</div>}
       {n.end && !n.showing && <div className="muted small">Where work goes on</div>}
     </>

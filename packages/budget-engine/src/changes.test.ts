@@ -70,9 +70,22 @@ describe('describeChange', () => {
     const [w, e] = b.categories[0]!.accounts[0]!.details;
     const after = withLines(b, [{ ...w!, rate: '120', subtotal: '120' }, e!]);
     expect(describeChange(b, after)).toEqual([
-      { where: '1102 line 1 (Writer)', what: 'Rate', from: '100', to: '120' },
-      { where: '1102 line 1 (Writer)', what: 'Subtotal', from: '100', to: '120' },
+      { where: '1102 line 1 (Writer)', what: 'Rate', from: '100.00', to: '120.00' },
+      { where: '1102 line 1 (Writer)', what: 'Subtotal', from: '100.00', to: '120.00' },
     ]);
+  });
+
+  it('shows rates in full and money as the budget rounds it', () => {
+    const b = budget();
+    const [w, e] = b.categories[0]!.accounts[0]!.details;
+    const after = withLines(b, [{ ...w!, rate: '16000.0475', subtotal: '128000.38' }, e!]);
+    const dollars = { ...after, settings: { ...after.settings, displayPrecision: 'dollars' as const } };
+    expect(describeChange(b, dollars).map((d) => [d.what, d.to])).toEqual([
+      ['Show money in', 'dollars'],
+      ['Rate', '16,000.0475'],
+      ['Subtotal', '128,000'],
+    ]);
+    expect(describeChange(b, after).map((d) => d.to)).toEqual(['16,000.0475', '128,000.38']);
   });
 
   it('notices lines added, deleted and moved', () => {

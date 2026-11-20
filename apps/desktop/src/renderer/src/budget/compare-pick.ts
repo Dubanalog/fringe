@@ -1,31 +1,59 @@
-import { type BudgetVersion, versionsNewestFirst } from '@fringe/budget-engine';
+import {
+  type BudgetHistory,
+  type BudgetVersion,
+  branchName,
+  currentPath,
+  findBranch,
+  isEditable,
+  previousVersion,
+  versionsNewestFirst,
+} from '@fringe/budget-engine';
 
-/** What the Changes report compares: version ids, or null for the defaults below. */
-export interface ComparePair {
-  from: string | null;
-  to: string | null;
+/**
+ * The Comparison report always compares what's showing (a branch's latest, or a version opened
+ * read-only) with one version picked as From. To compare two older versions, open the later one.
+ */
+
+/** The version the point showing is, if it's one (the showing branch's own first). */
+export function showingVersion(history: BudgetHistory): BudgetVersion | null {
+  const id = history.entries[history.current]!.id;
+  const at = history.versions.filter((v) => v.entryId === id);
+  return at.find((v) => v.branch === history.branch) ?? at[0] ?? null;
+}
+
+/** The versions to compare from: every one but the one showing, those that led to it first. */
+export function fromChoices(history: BudgetHistory): BudgetVersion[] {
+  const showing = showingVersion(history);
+  const path = currentPath(history);
+  const list = versionsNewestFirst(history.versions).filter((v) => v.id !== showing?.id);
+  return [...list.filter((v) => path.has(v.entryId)), ...list.filter((v) => !path.has(v.entryId))];
 }
 
 /**
- * The two sides of the Changes report. `to` is a version's id, or null for the budget now; `from`
- * is a version's id, or null to take the one before `to` (the latest version, when `to` is now).
- * So "v2 against the version before it" is one click, and so is "what changed since the latest".
+ * What to compare from: the version picked, while it's there and isn't the one showing; otherwise
+ * the latest version that led to what's showing (for a version, the one before it).
  */
-export function comparePick(
-  versions: readonly BudgetVersion[],
-  from: string | null,
-  to: string | null,
-): { since: BudgetVersion | null; until: BudgetVersion | null } {
-  const list = versionsNewestFirst(versions);
-  const until = list.find((v) => v.id === to) ?? null;
-  const picked = list.find((v) => v.id === from);
-  if (picked) return { since: picked, until };
-  const since = until ? (list[list.indexOf(until) + 1] ?? null) : (list[0] ?? null);
-  return { since, until };
+export function compareFrom(history: BudgetHistory, picked: string | null): BudgetVersion | null {
+  const choices = fromChoices(history);
+  const chosen = choices.find((v) => v.id === picked);
+  if (chosen) return chosen;
+  const showing = showingVersion(history);
+  if (showing) return previousVersion(history, showing);
+  const path = currentPath(history);
+  return choices.find((v) => path.has(v.entryId)) ?? null;
 }
 
-/** The version saved just before this one, if any. */
-export function versionBefore(versions: readonly BudgetVersion[], v: BudgetVersion): BudgetVersion | null {
-  const list = versionsNewestFirst(versions);
-  return list[list.findIndex((x) => x.id === v.id) + 1] ?? null;
+/** A version as the report heads it: "v1.1", with its branch's name when it's on another branch. */
+export function sideLabel(history: BudgetHistory, v: BudgetVersion, budgetName: string): string {
+  const branch = findBranch(history, v.branch);
+  return v.branch === history.branch || !branch
+    ? `v${v.number}`
+    : `${branchName(branch, budgetName)} v${v.number}`;
+}
+
+/** What's showing, as the report heads it: its version, "Now" at a branch's latest, or "This point". */
+export function showingLabel(history: BudgetHistory, budgetName: string): string {
+  const v = showingVersion(history);
+  if (v) return sideLabel(history, v, budgetName);
+  return isEditable(history) ? 'Now' : 'This point';
 }

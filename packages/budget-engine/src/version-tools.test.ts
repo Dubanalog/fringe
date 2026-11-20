@@ -88,6 +88,31 @@ describe('branch tools for the AI', () => {
     expect(() => run(h, 'create_branch', { name: ' ' })).toThrow();
   });
 
+  it('saves a version of the branch showing, for the app to save once the user allows it', () => {
+    const h = pilot();
+    const r = run(h, 'save_version', {
+      name: 'Studio draft',
+      whatChanged: 'Added overhead',
+      sentOn: '2026-11-20',
+    });
+    expect(r.version).toMatchObject({
+      number: '1.1',
+      branch: h.branch,
+      entryId: h.entries[h.current]!.id,
+      name: 'Studio draft',
+      changes: 'Added overhead',
+      sentOn: '2026-11-20',
+      pdf: null,
+    });
+    expect(r.label).toBe('AI: save 25-day shoot v1.1');
+    expect(r.result).toMatchObject({ version: '1.1', branch: '25-day shoot', comparedWith: 'v1.0' });
+    // The history itself is left for the app to change.
+    expect(h.versions.filter((v) => v.branch === h.branch)).toHaveLength(1);
+    expect(run(h, 'save_version', { number: 'v2.0' }).version!.number).toBe('2.0');
+    expect(() => run(h, 'save_version', { number: '1.0' })).toThrow(/already a v1.0/);
+    expect(() => run(h, 'save_version', { sentOn: 'Friday' })).toThrow(/YYYY-MM-DD/);
+  });
+
   it('refuses changes to a version or an earlier point', () => {
     let h = pilot();
     expect(readOnlyNote(h)).toBeNull();
@@ -95,6 +120,7 @@ describe('branch tools for the AI', () => {
     h = goTo(h, v10.entryId);
     expect(readOnlyNote(h)).toMatch(/"Pilot" v1.0, which stays as it was.*create_branch/);
     expect(() => run(h, 'fill_version_form', { notes: 'x' })).toThrow(/branch's latest/);
+    expect(() => run(h, 'save_version')).toThrow(/branch's latest/);
     // Started from what's showing: the version.
     expect(run(h, 'create_branch', { name: 'Option C' }).branch!.fromEntryId).toBe(v10.entryId);
   });

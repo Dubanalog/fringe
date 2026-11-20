@@ -168,7 +168,7 @@ export const VERSION_TOOLS: readonly VersionTool[] = [
   {
     name: 'list_branches',
     description:
-      "Lists the budget's branches: the main line (named after the budget) and the named lines started from a version or a branch's latest, e.g. \"25-day shoot\". Each has its own versions, numbered from v1.0. Gives where each started, its versions, its latest grand total, whether the user marked it not picked, and what the user is looking at now. Only a branch's latest can be changed; versions and earlier points stay as they were.",
+      'Lists the budget\'s branches: the main line (named after the budget) and the named lines, each started from a saved version, e.g. "25-day shoot". Each has its own versions, numbered from v1.0. Gives where each started, its versions, its latest grand total, whether the user marked it not picked, and what the user is looking at now. Only a branch\'s latest can be changed; versions and earlier points stay as they were.',
     inputSchema: obj({}),
     edits: false,
     run: (history) => {
@@ -203,12 +203,12 @@ export const VERSION_TOOLS: readonly VersionTool[] = [
   {
     name: 'create_branch',
     description:
-      'Starts a named branch, a new line of the budget for a different plan (e.g. "25-day shoot"), from a saved version or a branch\'s latest, and shows it in the app, so your next changes go on it. The point it starts from stays as it was. Ask the user what to call it. `from` is a version number on `fromBranch` (the branch showing when left out); leave both out to start from what the user is looking at, or give only `fromBranch` to start from that branch\'s latest. The user allows it first.',
+      'Starts a named branch, a new line of the budget for a different plan (e.g. "25-day shoot"), from a saved version, and shows it in the app, so your next changes go on it. The version stays as it was. A branch starts only from a saved version: to start one from a branch\'s latest, save a version of it first (save_version, or fill_version_form for the user to save). Ask the user what to call it. `from` is a version number on `fromBranch` (the branch showing when left out); leave both out to start from the version the user is looking at. The user allows it first.',
     inputSchema: obj(
       {
         name: str('The new branch\'s name, e.g. "25-day shoot".'),
         from: str('A version to start from, e.g. "1.0".'),
-        fromBranch: str('The branch `from` is on, or whose latest to start from, as list_branches names it.'),
+        fromBranch: str('The branch `from` is on, as list_branches names it.'),
       },
       ['name'],
     ),
@@ -224,7 +224,7 @@ export const VERSION_TOOLS: readonly VersionTool[] = [
           : history.entries[history.current]!.id;
       if (!canBranchFrom(history, entryId)) {
         throw new ToolError(
-          "A branch starts from a saved version or a branch's latest, and the user is looking at an earlier point. Give `from` (a version) or `fromBranch`.",
+          "A branch starts only from a saved version, and that point isn't one. Give `from` (a version number), or save a version first (save_version, once the user agrees) and start from it.",
         );
       }
       let made: ReturnType<typeof createBranch>;
@@ -347,7 +347,7 @@ export const VERSION_TOOLS: readonly VersionTool[] = [
   {
     name: 'fill_version_form',
     description:
-      'Fills in the Versions page\'s "Save version" form for a new version of the budget as it is now, opening it if it isn\'t open, for the user to check and save. Use it when the user is about to save a version: write "What changed" (whatChanged) from compare_versions against the latest version. Only the fields given are filled; whatChanged replaces what\'s in that box. Nothing is saved until the user clicks Save version.',
+      'Fills in the Versions page\'s "Save version" form for a new version of the budget as it is now, opening it if it isn\'t open, for the user to check and save. Use it when the user is about to save a version: write "What changed" (whatChanged) from compare_versions against the latest version. Only the fields given are filled; whatChanged replaces what\'s in that box. Nothing is saved until the user clicks Save version. When the user just asks you to save a version, use save_version.',
     inputSchema: obj({
       whatChanged: str('What changed since the latest version, as the user would send it.'),
       notes: str('Notes about the version.'),
@@ -382,6 +382,56 @@ export const VERSION_TOOLS: readonly VersionTool[] = [
           note: 'The form is filled in on the Versions page. The user checks it and clicks Save version.',
         },
       };
+    },
+  },
+  {
+    name: 'save_version',
+    description:
+      'Saves the budget as it is now (the latest of the branch showing) as a new version on the Versions page, once the user allows it. Use it only when the user asks you to save a version; when they want to check the details first, or want a PDF of the reports saved with it, use fill_version_form instead and they click Save version. Write "What changed" (whatChanged) from compare_versions against the latest version first.',
+    inputSchema: obj({
+      number: str('The version number, e.g. "1.1"; leave out for the next one.'),
+      name: str('e.g. "Studio draft".'),
+      whatChanged: str('What changed since the latest version, as the user would send it.'),
+      notes: str('Notes about the version.'),
+      sentTo: str('Who it is being sent to.'),
+      sentOn: str('The date it is sent, YYYY-MM-DD; leave out when it is not sent yet.'),
+    }),
+    edits: true,
+    run: (history, input) => {
+      const locked = readOnlyNote(history);
+      if (locked) throw new ToolError(`A version is saved from a branch's latest. ${locked}`);
+      const field = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
+      const sentOn = field('sentOn').trim();
+      if (sentOn && !/^\d{4}-\d{2}-\d{2}$/.test(sentOn))
+        throw new ToolError('Give sentOn as YYYY-MM-DD, e.g. 2026-10-16.');
+      const mine = versionsOn(history);
+      const number = field('number').trim().replace(/^v/i, '') || nextVersionNumber(mine);
+      const latest = versionsNewestFirst(mine)[0];
+      try {
+        const { version } = saveVersion(history, {
+          number,
+          name: field('name'),
+          sentOn,
+          sentTo: field('sentTo'),
+          notes: field('notes'),
+          changes: field('whatChanged'),
+          pdf: null,
+        });
+        const branch = activeBranch(history);
+        return {
+          version,
+          label: `AI: save ${pointName(history, branch, `v${version.number}`)}`,
+          result: {
+            ...summary(history, version),
+            branch: labelOf(history, branch),
+            comparedWith: latest ? `v${latest.number}` : null,
+            note: 'Saved on the Versions page. No PDF was saved with it. For a version with a PDF, use fill_version_form and the user saves it.',
+          },
+        };
+      } catch (err) {
+        if (err instanceof VersionError) throw new ToolError(err.message);
+        throw err;
+      }
     },
   },
 ];

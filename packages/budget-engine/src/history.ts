@@ -247,15 +247,16 @@ export function cleanBranchName(history: BudgetHistory, name: string, except?: s
   return clean;
 }
 
-/** Whether a branch can start at this entry: a saved version, or the end of a branch. */
+/**
+ * Whether a branch can start at this entry. Only a saved version can: every branch then starts
+ * from a point with a name and a number, which stays as it was.
+ */
 export function canBranchFrom(history: BudgetHistory, entryId: string): boolean {
-  return (
-    history.versions.some((v) => v.entryId === entryId) || history.branches.some((b) => b.head === entryId)
-  );
+  return history.versions.some((v) => v.entryId === entryId);
 }
 
 /**
- * Starts a named branch from a saved version or the end of a branch, and shows it, ready to work
+ * Starts a named branch from a saved version, and shows it, ready to work
  * on. It numbers its own versions from v1.0.
  */
 export function createBranch(
@@ -268,7 +269,9 @@ export function createBranch(
   const current = indexOf(history, fromEntryId);
   if (current < 0) throw new BranchError('That point is not in the history.');
   if (!canBranchFrom(history, fromEntryId)) {
-    throw new BranchError('Start a branch from a saved version or from the end of a branch.');
+    throw new BranchError(
+      'Start a branch from a saved version. Save a version first to start one from the latest.',
+    );
   }
   const branch: Branch = {
     id: newId(),

@@ -55,9 +55,10 @@ test('manual screenshots', async () => {
   await go(page, 'Crew List');
   await shot('crew-list');
 
-  await go(page, 'History');
+  await go(page, 'Versions');
   await shot('history');
-  await page.getByRole('button', { name: 'Compare with v1.1' }).click();
+  await page.getByRole('button', { name: 'Fringe Life, v2.0' }).click();
+  await page.getByText('Compare with v1.1').click();
   for (const name of ['Topsheet', 'Account Summary', 'Detail'])
     await page.getByRole('checkbox', { name, exact: true }).uncheck();
   await shot('compare');

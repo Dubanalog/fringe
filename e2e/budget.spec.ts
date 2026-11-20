@@ -127,11 +127,11 @@ test('saves the reports as a PDF', async ({ app, page, home }) => {
 test('saves a version, with its PDF', async ({ page, home }) => {
   await buildBudget(page);
 
-  await page.getByRole('button', { name: 'History' }).click();
+  await page.getByRole('button', { name: 'Versions', exact: true }).click();
   await page.getByRole('button', { name: 'Save version…' }).click();
   await page.getByPlaceholder('e.g. Studio draft').fill('Studio draft');
   await page.getByRole('button', { name: 'Save version', exact: true }).click();
-  await expect(page.locator('main')).toContainText('Studio draft');
+  await expect(page.getByRole('button', { name: 'Test Show, v1.0' })).toBeVisible();
 
   const versions = join(home, 'Documents', 'Fringe Budgets', 'Test Show', 'versions');
   await expect

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Account, type Budget, DEFAULT_BUDGET_SETTINGS, type DetailLine } from './model';
+import { type Account, type Budget, DEFAULT_BUDGET_SETTINGS, type DetailLine, budgetTitle } from './model';
 import { evaluateFormula, globalLookup, resolveGlobals } from './formula';
 import {
   addCategoryFringeAccounts,
@@ -22,8 +22,10 @@ import {
   currentPath,
   deleteVersion,
   forkBudget,
-  forkName,
+  copyName,
+  versionFileName,
   goTo,
+  mainBranch,
   nextVersionNumber,
   recordChange,
   redo,
@@ -377,13 +379,26 @@ describe('history', () => {
     expect(fork.forkedFrom).toEqual({ budgetId: 'b', budgetName: 'b', entryId: h.entries[0]!.id, at: 't1' });
   });
 
-  it('names forks without piling up "(fork)"', () => {
-    expect(forkName('Pilot', [])).toBe('Pilot (fork)');
-    expect(forkName('Pilot', ['Pilot (fork)'])).toBe('Pilot (fork 2)');
-    expect(forkName('Pilot (fork)', ['Pilot', 'Pilot (fork)'])).toBe('Pilot (fork 2)');
-    expect(forkName('Pilot (fork) (fork 3)', ['pilot (FORK)'])).toBe('Pilot (fork 2)');
-    expect(forkName('Pilot', [], '1.2')).toBe('Pilot v1.2 (fork)');
-    expect(forkName('Pilot v1.2 (fork)', [], '2')).toBe('Pilot v2 (fork)');
+  it('names copies without piling up "(copy)"', () => {
+    expect(copyName('Pilot', [])).toBe('Pilot (copy)');
+    expect(copyName('Pilot', ['Pilot (copy)'])).toBe('Pilot (copy 2)');
+    expect(copyName('Pilot (copy)', ['Pilot', 'Pilot (copy)'])).toBe('Pilot (copy 2)');
+    // Older copies were called forks.
+    expect(copyName('Pilot (fork) (copy 3)', ['pilot (COPY)'])).toBe('Pilot (copy 2)');
+    expect(copyName('Pilot', [], '1.2')).toBe('Pilot v1.2 (copy)');
+    expect(copyName('Pilot v1.2 (copy)', [], '2')).toBe('Pilot v2 (copy)');
+    expect(copyName('Pilot', [], '1.0', '25-day shoot')).toBe('Pilot 25-day shoot v1.0 (copy)');
+  });
+
+  it('names version files by branch, so branches never share one', () => {
+    const pilot = { ...budget, name: 'Pilot' };
+    const title = budgetTitle(pilot);
+    const main = mainBranch('e', 't');
+    expect(versionFileName(pilot, null, '1.0')).toBe(`${title} v1.0`);
+    expect(versionFileName(pilot, main, 'v2')).toBe(`${title} v2`);
+    expect(versionFileName(pilot, { ...main, id: 'x', name: '25-day shoot' }, '1.0')).toBe(
+      `${title} - 25-day shoot v1.0`,
+    );
   });
 });
 

@@ -3,6 +3,7 @@ import { constants } from 'node:fs';
 import { access, mkdir, open, readFile, readdir, rename, rm, rmdir, stat } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import {
+  type BranchFiles,
   type Budget,
   type BudgetHistory,
   type HistoryEvent,
@@ -63,8 +64,10 @@ This folder is one budget, complete on its own. Copy it, back it up or move it a
 from the app with Open Project.
 
 - \`project.json\`: what this folder is (format, version, project id, name).
-- \`budget.json\`: the budget as it is now. Plain JSON, readable without the app.
-- \`history/events.jsonl\`: every change, undo and go-back, one line each, oldest first.
+- \`budget.json\`: the budget as it is now (its main line). Plain JSON, readable without the app.
+- \`branches/\`: each other branch as it is now, such as \`branches/25-day shoot.json\`. Also plain
+  JSON.
+- \`history/events.jsonl\`: every change, undo, branch and version, one line each, oldest first.
 - \`history/objects/\`: the budget at each change, stored in pieces named by their content's
   SHA-256 hash, so unchanged parts are stored once.
 - \`knowledge/\`: everything kept with the budget: instructions, rules and decisions, rate sheets,
@@ -184,9 +187,15 @@ async function mergeDocuments(path: string): Promise<void> {
 
 /**
  * Saves a project's new history events and its current budget. Saves to one folder run in order.
- * Pieces first, then the event lines that name them, then budget.json.
+ * Pieces first, then the event lines that name them, then budget.json (the main line) and the
+ * files of the other branches that changed.
  */
-export function saveProject(folder: unknown, budget: Budget, events: HistoryEvent[]): Promise<void> {
+export function saveProject(
+  folder: unknown,
+  budget: Budget,
+  events: HistoryEvent[],
+  branches?: BranchFiles,
+): Promise<void> {
   const entry = typeof folder === 'string' ? allowed.get(folder) : undefined;
   if (!entry) return Promise.reject(new Error('That project is not open.'));
   const path = folder as string;
@@ -211,6 +220,7 @@ export function saveProject(folder: unknown, budget: Budget, events: HistoryEven
       }
     }
     await writeAtomic(join(path, 'budget.json'), JSON.stringify(budget, null, 1) + '\n');
+    if (branches) await saveBranchFiles(path, branches);
     if (budget.name !== entry.name) {
       // Renamed: project.json and Recent show the new name. The folder keeps its own.
       const file = join(path, 'project.json');
@@ -223,6 +233,43 @@ export function saveProject(folder: unknown, budget: Budget, events: HistoryEven
   const next = entry.queue.then(run);
   entry.queue = next.catch(() => undefined);
   return next;
+}
+
+/** A branch file name from the window: a plain name ending .json, nothing that leaves the folder. */
+function isBranchFile(name: unknown): name is string {
+  return (
+    typeof name === 'string' &&
+    name.length <= 120 &&
+    name.toLowerCase().endsWith('.json') &&
+    !name.startsWith('.') &&
+    !/[<>:"/\\|?*]/.test(name) &&
+    ![...name].some((c) => c < ' ')
+  );
+}
+
+/**
+ * Writes each changed branch to branches/<name>.json, plain JSON readable without the app, and
+ * removes the files of branches that were renamed.
+ */
+async function saveBranchFiles(path: string, branches: BranchFiles): Promise<void> {
+  const dir = join(path, 'branches');
+  const keep = new Set(branches.keep.filter(isBranchFile).map((n) => n.toLowerCase()));
+  for (const { file, budget } of branches.write) {
+    if (!isBranchFile(file) || !budget || typeof budget !== 'object') continue;
+    await mkdir(dir, { recursive: true });
+    await writeAtomic(join(dir, file), JSON.stringify(budget, null, 1) + '\n');
+  }
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (name.toLowerCase().endsWith('.json') && !keep.has(name.toLowerCase())) {
+      await rm(join(dir, name), { force: true });
+    }
+  }
 }
 
 /** Every file of a project folder that goes in a .fringe file, by '/'-separated relative path. */

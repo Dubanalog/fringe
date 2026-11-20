@@ -4,14 +4,17 @@ import {
   type ChangeDetail,
   type HistoryEntry,
   VersionError,
-  budgetTitle,
+  activeBranch,
+  branchName,
   compareBudgets,
   currentPath,
   describeChange,
   describeComparison,
+  findBranch,
   findEntry,
   formatMoney,
   grandTotal,
+  isEditable,
   nextVersionNumber,
   parentEntry,
   previousVersion,
@@ -20,16 +23,24 @@ import {
   versionBudget,
   versionOfEntries,
   versionsNewestFirst,
+  versionFileName,
+  versionsOn,
 } from '@fringe/budget-engine';
-import { type ComparePair, versionBefore } from './compare-pick';
+import { BranchTreeView } from './BranchTreeView';
+import type { ComparePair } from './compare-pick';
 import { optionsFor, reportsWith, useOpenChanges, useReportOptions, versionLabel } from './report-options';
 import type { BudgetTab } from './tabs';
 
 interface Props {
   tab: BudgetTab;
-  goTo(entryId: string): void;
+  /** Shows a point: a branch's end to work on, or an earlier point to look at. */
+  open(point: { branchId: string; entryId: string; end: boolean }): void;
+  /** Starts a branch (the name already checked) from a version or a branch's end. */
+  startBranch(name: string, fromEntryId: string): void;
+  renameBranch(branchId: string, name: string): void;
+  setNotPicked(branchId: string, notPicked: boolean): void;
   /** Opens a copy of the budget as it was at this point (from this version, if one), as a new budget. */
-  openFork(entryId: string, version?: string): void;
+  copyToNew(entryId: string, version?: string, branchId?: string): void;
   saveVersion(version: BudgetVersion): void;
   deleteVersion(versionId: string): void;
   /** Opens Reports with the Changes report, comparing these two (null: the budget now). */
@@ -47,12 +58,6 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'nume
 
 const fullTime = (iso: string) =>
   new Date(iso).toLocaleString([], { dateStyle: 'full', timeStyle: 'medium' });
-
-/** A YYYY-MM-DD date as the user reads it, e.g. "3 March 2026". */
-const shortDate = (ymd: string) => {
-  const [y, m, d] = ymd.split('-').map(Number);
-  return y && m && d ? new Date(y, m - 1, d).toLocaleDateString([], { dateStyle: 'medium' }) : ymd;
-};
 
 const today = () => {
   const d = new Date();
@@ -86,20 +91,23 @@ function title(e: HistoryEntry, details: ChangeDetail[]): string {
 }
 
 /**
- * Every change to the budget, newest first, saved in its project folder, and its versions: the
- * budget as it was sent out, numbered and noted, with the PDF that went. Nothing is ever dropped;
- * changes undone and then replaced stay here to go back to.
+ * The budget's versions and branches as a tree, and below it every change on the branch showing,
+ * newest first. Nothing is ever dropped: changes undone and then replaced stay here.
  */
 export function HistoryView({
   tab,
-  goTo,
-  openFork,
+  open: openPoint,
+  startBranch,
+  renameBranch,
+  setNotPicked,
+  copyToNew,
   saveVersion: save,
   deleteVersion,
   showChanges,
   clearDraft,
 }: Props) {
-  const { entries, current } = tab.history;
+  const { history } = tab;
+  const { entries, current } = history;
   const from = tab.budget.forkedFrom;
   const precision = tab.budget.settings.displayPrecision;
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
@@ -107,8 +115,10 @@ export function HistoryView({
   /** The version being edited: 'new' for a new one. */
   const [editing, setEditing] = useState<string | null>(null);
   const openChanges = useOpenChanges(showChanges);
+  const editable = isEditable(history);
   // The AI filling in the form opens it.
   const adding = editing === 'new' || Boolean(tab.versionDraft);
+  const branchTitle = branchName(activeBranch(history), tab.budget.name);
 
   const toggle = (id: string) => {
     const next = new Set(open);
@@ -116,38 +126,46 @@ export function HistoryView({
     setOpen(next);
   };
 
-  const path = currentPath(tab.history);
-  const versions = versionsNewestFirst(tab.history.versions);
+  const path = currentPath(history);
+  const versions = versionsOn(history);
   const versionsAt = new Map<string, BudgetVersion[]>();
-  for (const v of versions) versionsAt.set(v.entryId, [...(versionsAt.get(v.entryId) ?? []), v]);
+  for (const v of history.versions) versionsAt.set(v.entryId, [...(versionsAt.get(v.entryId) ?? []), v]);
   /** The version each change first went into. */
-  const inVersion = versionOfEntries(tab.history);
+  const inVersion = versionOfEntries(history);
+  const editingVersion = history.versions.find((v) => v.id === editing) ?? null;
 
-  const rows = entries
-    .map((e, i) => ({ e, i }))
+  // The changes on the branch showing; where it started from is on the tree.
+  const mine = entries.map((e, i) => ({ e, i })).filter(({ e }) => e.branch === history.branch);
+  const rows = mine
     .reverse()
     .slice(0, shownCount)
     .map((row, n, all) => ({ ...row, day: dayOf(row.e.at), prev: n > 0 ? all[n - 1]!.e.at : null }));
 
   return (
     <section className="view view-scroll">
-      <h1>History</h1>
+      <h1>Versions</h1>
       <p className="muted">
-        Every change to {tab.budget.name}, by you or by the AI, kept for good. Click a change to see exactly
-        what it did. Go back to any point (nothing is lost: later changes stay, even ones you undid and
-        replaced), or fork a copy from it into a new budget to try something else.
+        Each branch of {tab.budget.name} has its own row, with the versions saved on it and its latest point,
+        where work goes on. Click a point to open it, compare it, or start a branch from it. Click a
+        branch&rsquo;s name to rename it or mark it not picked. Nothing is ever deleted.
       </p>
       {from && (
         <p>
-          Forked from <strong>{from.budgetName}</strong> on {fullTime(from.at)}.
+          Copied from <strong>{from.budgetName}</strong> on {fullTime(from.at)}.
         </p>
       )}
 
       <div className="versions">
         <div className="versions-head">
-          <h2>Versions</h2>
+          <h2>Branches</h2>
           {!adding && (
-            <button type="button" className="btn btn-primary" onClick={() => setEditing('new')}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!editable}
+              title={editable ? undefined : 'Open the latest point of a branch to save a version of it.'}
+              onClick={() => setEditing('new')}
+            >
               Save version…
             </button>
           )}
@@ -163,47 +181,33 @@ export function HistoryView({
             }}
           />
         )}
-        {versions.length === 0 && !adding ? (
+        {editingVersion && (
+          <VersionForm tab={tab} version={editingVersion} save={save} close={() => setEditing(null)} />
+        )}
+        {history.versions.length === 0 && history.branches.length === 1 && !adding && (
           <p className="muted small">
             When you send the budget out, save it as a version (v1.0, v1.1, …) with who it went to and a PDF
-            of the reports. Later you can go back to it, or see everything that changed since.
+            of the reports. Later you can open it again, see everything that changed since, or start a branch
+            from it to try something else.
           </p>
-        ) : (
-          <ul className="version-list">
-            {versions.map((v) =>
-              editing === v.id ? (
-                <li key={v.id}>
-                  <VersionForm tab={tab} version={v} save={save} close={() => setEditing(null)} />
-                </li>
-              ) : (
-                <VersionCard
-                  key={v.id}
-                  tab={tab}
-                  version={v}
-                  showing={entries[current]?.id === v.entryId}
-                  goTo={() => goTo(v.entryId)}
-                  fork={() => {
-                    if (versionBudget(tab.history, v)) openFork(v.entryId, v.number);
-                  }}
-                  edit={() => setEditing(v.id)}
-                  remove={() => {
-                    if (
-                      window.confirm(
-                        `Delete v${v.number}? The budget's history stays; only the version goes.`,
-                      )
-                    )
-                      deleteVersion(v.id);
-                  }}
-                  previous={versionBefore(tab.history.versions, v)}
-                  showChanges={openChanges}
-                />
-              ),
-            )}
-          </ul>
         )}
+        <BranchTreeView
+          tab={tab}
+          open={openPoint}
+          startBranch={startBranch}
+          renameBranch={renameBranch}
+          setNotPicked={setNotPicked}
+          showChanges={openChanges}
+          editVersion={(id) => setEditing(id)}
+          deleteVersion={(v) => {
+            if (window.confirm(`Delete v${v.number}? The budget's history stays; only the version goes.`))
+              deleteVersion(v.id);
+          }}
+          copyToNew={copyToNew}
+        />
       </div>
 
-      <h2>Changes</h2>
+      <h2>Changes on {branchTitle}</h2>
       <ol className="history-list">
         {rows.map(({ e, i, day, prev }) => {
           const before = parentEntry(tab.history, e)?.budget ?? null;
@@ -260,7 +264,7 @@ export function HistoryView({
                       {state === 'undone' && (
                         <span
                           className="history-state"
-                          title="Not in the budget as it is now: it was undone, or comes after a point you went back to."
+                          title="Not in the budget showing: it was undone, or comes after the point showing."
                         >
                           {' '}
                           Not in the budget now
@@ -287,19 +291,6 @@ export function HistoryView({
                       </span>
                     )}
                   </button>
-                  <span className="history-actions">
-                    <button
-                      type="button"
-                      className="btn btn-small"
-                      disabled={i === current}
-                      onClick={() => goTo(e.id)}
-                    >
-                      Go back to here
-                    </button>
-                    <button type="button" className="btn btn-small" onClick={() => openFork(e.id)}>
-                      Fork from here
-                    </button>
-                  </span>
                 </div>
                 {expanded && (
                   <div className="history-details">
@@ -343,112 +334,14 @@ export function HistoryView({
           );
         })}
       </ol>
-      {entries.length > shownCount && (
+      {mine.length > shownCount && (
         <div className="actions actions-left">
           <button type="button" className="btn" onClick={() => setShownCount(shownCount + PAGE)}>
-            Show older changes ({entries.length - shownCount} more)
+            Show older changes ({mine.length - shownCount} more)
           </button>
         </div>
       )}
     </section>
-  );
-}
-
-function VersionCard({
-  tab,
-  version: v,
-  showing,
-  goTo,
-  fork,
-  edit,
-  remove,
-  previous,
-  showChanges,
-}: {
-  tab: BudgetTab;
-  version: BudgetVersion;
-  /** The version saved before this one, to compare it with. */
-  previous: BudgetVersion | null;
-  showing: boolean;
-  goTo(): void;
-  fork(): void;
-  edit(): void;
-  remove(): void;
-  showChanges(pair: ComparePair): void;
-}) {
-  const [missing, setMissing] = useState(false);
-  const budget = versionBudget(tab.history, v);
-  const sent = [v.sentOn && `Sent ${shortDate(v.sentOn)}`, v.sentTo && `to ${v.sentTo}`]
-    .filter(Boolean)
-    .join(' ');
-  return (
-    <li className={`version-card${showing ? ' now' : ''}`}>
-      <div className="version-title">
-        <strong>v{v.number}</strong>
-        {v.name && <span>{v.name}</span>}
-        {showing && <span className="history-state">Showing now</span>}
-        {budget && (
-          <span className="version-total num" title="Grand total at this version">
-            {formatMoney(grandTotal(budget), tab.budget.settings.displayPrecision)}
-          </span>
-        )}
-      </div>
-      <p className="muted small">
-        {sent ? `${sent} · ` : 'Not marked as sent · '}saved {fullTime(v.savedAt)}
-      </p>
-      {v.notes && <p className="version-notes">{v.notes}</p>}
-      {v.changes && (
-        <details className="version-changes">
-          <summary>What changed</summary>
-          <p className="version-notes">{v.changes}</p>
-        </details>
-      )}
-      <div className="version-actions">
-        <button
-          type="button"
-          className="btn btn-small"
-          title={`What changed from v${v.number} to the budget now`}
-          onClick={() => showChanges({ from: v.id, to: null })}
-        >
-          Changes since
-        </button>
-        {previous && (
-          <button
-            type="button"
-            className="btn btn-small"
-            title={`What changed from v${previous.number} to v${v.number}`}
-            onClick={() => showChanges({ from: previous.id, to: v.id })}
-          >
-            Compare with v{previous.number}
-          </button>
-        )}
-        {v.pdf && tab.project && (
-          <button
-            type="button"
-            className="btn btn-small"
-            title={v.pdf}
-            onClick={() =>
-              void window.fringe.revealVersionPdf(tab.project!, v.pdf!).then((found) => setMissing(!found))
-            }
-          >
-            Show PDF
-          </button>
-        )}
-        <button type="button" className="btn btn-small" disabled={showing || !budget} onClick={goTo}>
-          Go back to here
-        </button>
-        <button type="button" className="btn btn-small" disabled={!budget} onClick={fork}>
-          Fork
-        </button>
-        <button type="button" className="btn btn-small" onClick={edit}>
-          Edit
-        </button>
-        <button type="button" className="btn btn-small" onClick={remove}>
-          Delete
-        </button>
-      </div>
-      {missing && <p className="warning small">The PDF isn’t in the project’s versions folder any more.</p>}
-    </li>
   );
 }
 
@@ -465,9 +358,10 @@ function VersionForm({
   close(): void;
 }) {
   const { history } = tab;
+  const mine = versionsOn(history, version?.branch);
   const { options, landscape } = useReportOptions();
   const ai = version ? null : (tab.versionDraft ?? null);
-  const [number, setNumber] = useState(ai?.number ?? version?.number ?? nextVersionNumber(history.versions));
+  const [number, setNumber] = useState(ai?.number ?? version?.number ?? nextVersionNumber(mine));
   const [name, setName] = useState(ai?.name ?? version?.name ?? '');
   const [sentOn, setSentOn] = useState(ai?.sentOn ?? version?.sentOn ?? today());
   const [sentTo, setSentTo] = useState(ai?.sentTo ?? version?.sentTo ?? '');
@@ -491,11 +385,9 @@ function VersionForm({
   const entryId = version?.entryId ?? history.entries[history.current]!.id;
   const budget = findEntry(history, entryId)?.budget ?? tab.budget;
   // The version before this one, to compare with: for a new one, the latest so far.
-  const previous = version
-    ? previousVersion(history, version)
-    : (versionsNewestFirst(history.versions)[0] ?? null);
+  const previous = version ? previousVersion(history, version) : (versionsNewestFirst(mine)[0] ?? null);
   const previousBudget = previous ? versionBudget(history, previous) : null;
-  const pdfName = `${budgetTitle(budget)} v${number.trim().replace(/^v/i, '')}`;
+  const pdfName = versionFileName(budget, findBranch(history, version?.branch ?? history.branch), number);
 
   const draft = () => {
     if (!previousBudget) return;
@@ -570,22 +462,18 @@ function VersionForm({
             autoFocus
           />
         </label>
-        {!version && history.versions.length > 0 && (
+        {!version && mine.length > 0 && (
           <span className="version-suggest muted small">
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => setNumber(nextVersionNumber(history.versions))}
-            >
-              {nextVersionNumber(history.versions)}
+            <button type="button" className="link-btn" onClick={() => setNumber(nextVersionNumber(mine))}>
+              {nextVersionNumber(mine)}
             </button>
             {' or '}
             <button
               type="button"
               className="link-btn"
-              onClick={() => setNumber(nextVersionNumber(history.versions, true))}
+              onClick={() => setNumber(nextVersionNumber(mine, true))}
             >
-              {nextVersionNumber(history.versions, true)}
+              {nextVersionNumber(mine, true)}
             </button>
           </span>
         )}

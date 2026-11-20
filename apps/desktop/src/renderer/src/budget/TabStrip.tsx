@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { BudgetTab } from './tabs';
+import { type BudgetTab, tabTitle } from './tabs';
 
 interface Props {
   tabs: readonly BudgetTab[];
@@ -37,7 +37,7 @@ export function TabStrip({
           role="tab"
           aria-selected={tab.id === activeId}
           tabIndex={tab.id === activeId ? 0 : -1}
-          title={tab.budget.source?.fileName ?? tab.budget.name}
+          title={tab.budget.source?.fileName ?? tabTitle(tab)}
           onClick={() => onActivate(tab.id)}
           onAuxClick={(e) => {
             if (e.button === 1) onClose(tab);
@@ -58,7 +58,7 @@ export function TabStrip({
               }}
             />
           ) : (
-            <span className="tab-name">{tab.budget.name}</span>
+            <span className="tab-name">{tabTitle(tab)}</span>
           )}
           {working === tab.id && (
             <span className="tab-ai" title="The AI is working on this budget" aria-label="AI working" />

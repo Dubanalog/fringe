@@ -1,6 +1,13 @@
 import { cleanAddonData } from './addons';
 import { cleanAssumptions } from './assumptions';
-import type { BudgetHistory, BudgetVersion, HistoryEntry } from './history';
+import {
+  type Branch,
+  type BudgetHistory,
+  type BudgetVersion,
+  type HistoryEntry,
+  MAIN_BRANCH,
+  mainBranch,
+} from './history';
 import {
   type Budget,
   type BudgetSettings,
@@ -73,14 +80,24 @@ export function newBudget(name: string): Budget {
   return { id: newId(), name, settings: DEFAULT_BUDGET_SETTINGS, categories: [] };
 }
 
+/** A branch as the log keeps it: its end is worked out from the changes and moves. */
+export type StoredBranch = Omit<Branch, 'head'>;
+
 /** What happened to a budget's history, in the order it happened. Kept until saved. */
 export type HistoryEvent =
   | { type: 'change'; entry: HistoryEntry }
-  /** Undo, redo or going back: the entry now showing. */
-  | { type: 'move'; at: string; to: string }
+  /**
+   * Undo or redo: the entry now at the end of `branch`, and showing. Saves from before branches
+   * leave `branch` out: it was just the entry showing.
+   */
+  | { type: 'move'; at: string; to: string; branch?: string }
   /** A version saved or changed; the latest for an id wins. */
   | { type: 'version'; at: string; version: BudgetVersion }
-  | { type: 'version-deleted'; at: string; id: string };
+  | { type: 'version-deleted'; at: string; id: string }
+  /** A branch started (and shown), renamed, or marked not picked; the latest for an id wins. */
+  | { type: 'branch'; at: string; branch: StoredBranch }
+  /** The end of another branch opened, to work on. */
+  | { type: 'show'; at: string; branch: string };
 
 /** One line of history/events.jsonl. A change names its snapshot by the hash of its outline. */
 export type StoredEvent =
@@ -92,11 +109,11 @@ export type StoredEvent =
       engineVersion: string;
       /** The entry it was made from; older saves leave it out (it was the entry showing then). */
       parent?: string | null;
+      /** The branch it was made on; saves from before branches leave it out. */
+      branch?: string;
       snapshot: string;
     }
-  | { type: 'move'; at: string; to: string }
-  | { type: 'version'; at: string; version: BudgetVersion }
-  | { type: 'version-deleted'; at: string; id: string };
+  | Exclude<HistoryEvent, { type: 'change' }>;
 
 export type Hash = (text: string) => string;
 
@@ -238,26 +255,136 @@ export function storeEvent(
   hash: Hash,
 ): { line: StoredEvent; pieces: Map<string, string> } {
   if (event.type !== 'change') return { line: event, pieces: new Map() };
-  const { id, at, label, engineVersion, parent, budget } = event.entry;
+  const { id, at, label, engineVersion, parent, branch, budget } = event.entry;
   const { snapshot, pieces } = packBudget(budget, hash);
-  return { line: { type: 'change', id, at, label, engineVersion, parent, snapshot }, pieces };
+  return { line: { type: 'change', id, at, label, engineVersion, parent, branch, snapshot }, pieces };
+}
+
+/** Whether a line was written by an app that knows about branches. */
+function knowsBranches(event: StoredEvent): boolean {
+  switch (event.type) {
+    case 'change':
+      return event.branch !== undefined;
+    case 'move':
+      return event.branch !== undefined;
+    case 'version':
+      return (event.version as Partial<BudgetVersion>).branch !== undefined;
+    case 'branch':
+    case 'show':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Sorts a history saved before branches into branches. The line to the entry that was showing is
+ * the main line. Every other line of changes with a saved version on it becomes "Alternate 1",
+ * "Alternate 2"… (oldest first), from the version to the newest change after it. Changes on no
+ * such line (undone, with no version) go with the branch they came off, as undone changes do.
+ * Ids come from the entries, so opening the same old history again sorts it the same way.
+ */
+export function sortIntoBranches(
+  ids: readonly string[],
+  parents: readonly (number | null)[],
+  current: number,
+  versionEntries: readonly number[],
+  times: readonly string[],
+): { branchOf: string[]; branches: { info: StoredBranch; head: number }[] } {
+  const branchOf: (string | undefined)[] = ids.map(() => undefined);
+  const children = ids.map((): number[] => []);
+  parents.forEach((p, i) => {
+    if (p !== null) children[p]!.push(i);
+  });
+  for (let i: number | null = current; i !== null && branchOf[i] === undefined; i = parents[i]!) {
+    branchOf[i] = MAIN_BRANCH;
+  }
+  const found: { id: string; from: number | null; head: number; start: number }[] = [];
+  for (const v of [...new Set(versionEntries)].sort((a, b) => b - a)) {
+    if (branchOf[v] !== undefined) continue;
+    // Its end: the newest change after it, then the newest after that, and on.
+    let head = v;
+    for (;;) {
+      const next = children[head]!.filter((c) => branchOf[c] === undefined).pop();
+      if (next === undefined) break;
+      head = next;
+    }
+    const id = `alt-${ids[v]!}`;
+    let start = head;
+    let i: number | null = head;
+    for (; i !== null && branchOf[i] === undefined; i = parents[i]!) {
+      branchOf[i] = id;
+      start = i;
+    }
+    found.push({ id, from: i, head, start });
+  }
+  // The rest go with the branch of the change they were made from, which is always earlier.
+  parents.forEach((p, i) => (branchOf[i] ??= p === null ? MAIN_BRANCH : branchOf[p]));
+  found.sort((a, b) => a.start - b.start);
+  return {
+    branchOf: branchOf as string[],
+    branches: found.map((b, n) => ({
+      head: b.head,
+      info: {
+        id: b.id,
+        name: `Alternate ${n + 1}`,
+        from: b.from === null ? null : ids[b.from]!,
+        createdAt: times[b.start]!,
+        notPicked: false,
+      },
+    })),
+  };
 }
 
 /**
  * Replays saved events into a history, as the app recorded it: every change is kept (a change
- * after going back starts a branch; the changes it replaced stay), a move shows another entry, and
- * versions are saved, changed and deleted. Lines that don't parse (a write cut short) are skipped.
- * Null when there's nothing to replay.
+ * after an undo replaces the undone ones; they stay), undo and redo move a branch's end, branches
+ * are started, renamed and marked, and versions are saved, changed and deleted. A history saved
+ * before branches is sorted into them (see sortIntoBranches). It opens at the end of the branch
+ * last worked on. Lines that don't parse (a write cut short) are skipped. Null when there's
+ * nothing to replay.
  */
 export function replayHistory(
   lines: readonly string[],
   load: (snapshot: string) => Budget,
 ): BudgetHistory | null {
   const changes: Extract<StoredEvent, { type: 'change' }>[] = [];
-  const parents: (string | null)[] = [];
+  const parents: (number | null)[] = [];
+  /** Each change's branch; blank until an old history is sorted. */
+  const branchOf: string[] = [];
   const index = new Map<string, number>();
   const versions = new Map<string, BudgetVersion>();
+  const infos = new Map<string, StoredBranch>();
+  const heads = new Map<string, number>();
   let current = -1;
+  let showing = MAIN_BRANCH;
+  let old = true;
+
+  const sortOld = () => {
+    old = false;
+    if (current < 0) return;
+    const versionEntries = [...versions.values()]
+      .map((v) => index.get(v.entryId))
+      .filter((i) => i !== undefined);
+    const sorted = sortIntoBranches(
+      changes.map((c) => c.id),
+      parents,
+      current,
+      versionEntries,
+      changes.map((c) => c.at),
+    );
+    sorted.branchOf.forEach((b, i) => (branchOf[i] = b));
+    heads.set(MAIN_BRANCH, current);
+    for (const { info, head } of sorted.branches) {
+      infos.set(info.id, info);
+      heads.set(info.id, head);
+    }
+    for (const v of versions.values()) {
+      const i = index.get(v.entryId);
+      if (i !== undefined) versions.set(v.id, { ...v, branch: branchOf[i]! });
+    }
+  };
+
   for (const text of lines) {
     let event: StoredEvent;
     try {
@@ -265,54 +392,131 @@ export function replayHistory(
     } catch {
       continue;
     }
+    if (old && knowsBranches(event)) sortOld();
     if (event.type === 'change') {
       // A change saved twice (a retried save) shows it again rather than adding it twice.
       const seen = index.get(event.id);
       if (seen !== undefined) {
         current = seen;
+        if (!old) {
+          showing = branchOf[seen]!;
+          heads.set(showing, seen);
+        }
         continue;
       }
+      const branch = old ? '' : (event.branch ?? MAIN_BRANCH);
+      const fallback = old ? current : (heads.get(branch) ?? current);
       const parent =
-        event.parent !== undefined && (event.parent === null || index.has(event.parent))
-          ? event.parent
-          : (changes[current]?.id ?? null);
+        event.parent === null
+          ? null
+          : event.parent !== undefined && index.has(event.parent)
+            ? index.get(event.parent)!
+            : fallback < 0
+              ? null
+              : fallback;
       index.set(event.id, changes.length);
       changes.push(event);
       parents.push(parent);
+      branchOf.push(branch);
       current = changes.length - 1;
+      if (!old) {
+        heads.set(branch, current);
+        showing = branch;
+      }
     } else if (event.type === 'move') {
       const i = index.get(event.to);
-      if (i !== undefined) current = i;
+      if (i === undefined) continue;
+      current = i;
+      if (!old) {
+        showing = event.branch ?? branchOf[i]!;
+        heads.set(showing, i);
+      }
     } else if (event.type === 'version') {
       // Map order is first-saved order, which a change to a version keeps.
       versions.set(event.version.id, event.version);
     } else if (event.type === 'version-deleted') {
       versions.delete(event.id);
+    } else if (event.type === 'branch') {
+      const b = event.branch;
+      if (!infos.has(b.id)) {
+        showing = b.id;
+        const from = b.from === null ? undefined : index.get(b.from);
+        if (!heads.has(b.id) && from !== undefined) heads.set(b.id, from);
+      }
+      infos.set(b.id, b);
+    } else if (event.type === 'show') {
+      showing = event.branch;
     }
   }
+  if (old) sortOld();
   if (current < 0) return null;
+
+  const main = infos.get(MAIN_BRANCH) ?? mainInfo(changes[0]!.at);
+  const branches: Branch[] = [];
+  for (const info of [main, ...[...infos.values()].filter((b) => b.id !== MAIN_BRANCH)]) {
+    const head = heads.get(info.id) ?? (info.id === MAIN_BRANCH ? 0 : undefined);
+    if (head === undefined) continue;
+    branches.push({ ...info, from: info.id === MAIN_BRANCH ? null : info.from, head: changes[head]!.id });
+  }
+  const known = new Set(branches.map((b) => b.id));
+  const branch = known.has(showing) ? showing : MAIN_BRANCH;
+  const entries: HistoryEntry[] = changes.map((line, i) => ({
+    id: line.id,
+    at: line.at,
+    label: line.label,
+    engineVersion: line.engineVersion,
+    parent: parents[i] === null ? null : changes[parents[i]!]!.id,
+    branch: known.has(branchOf[i]!) ? branchOf[i]! : MAIN_BRANCH,
+    budget: load(line.snapshot),
+  }));
   return {
-    current,
-    entries: changes.map((line, i) => ({
-      id: line.id,
-      at: line.at,
-      label: line.label,
-      engineVersion: line.engineVersion,
-      parent: parents[i]!,
-      budget: load(line.snapshot),
-    })),
-    versions: [...versions.values()].filter((v) => index.has(v.entryId)),
+    entries,
+    current: index.get(branches.find((b) => b.id === branch)!.head)!,
+    versions: [...versions.values()]
+      .filter((v) => index.has(v.entryId))
+      .map((v) => ({
+        ...v,
+        branch: known.has(v.branch) ? v.branch : entries[index.get(v.entryId)!]!.branch,
+      })),
+    branches,
+    branch,
   };
 }
 
-/** The history's entries and versions as events, for a project's first save. */
+function mainInfo(at: string): StoredBranch {
+  const { head: _head, ...info } = mainBranch('', at);
+  return info;
+}
+
+/** The history's entries, branches and versions as events, for a project's first save. */
 export function historyEvents(history: BudgetHistory, at = new Date().toISOString()): HistoryEvent[] {
   const events: HistoryEvent[] = history.entries.map((entry) => ({ type: 'change', entry }));
-  if (history.current !== history.entries.length - 1) {
-    events.push({ type: 'move', at, to: history.entries[history.current]!.id });
+  for (const { head: _head, ...info } of history.branches) {
+    if (info.id !== MAIN_BRANCH || info.notPicked) events.push({ type: 'branch', at, branch: info });
   }
+  // Each branch's end, which an undo may have moved back from its newest change.
+  for (const b of history.branches) events.push({ type: 'move', at, to: b.head, branch: b.id });
   for (const version of history.versions) events.push({ type: 'version', at, version });
+  events.push({ type: 'show', at, branch: history.branch });
   return events;
+}
+
+/**
+ * The file each branch other than the main line is written to in the project's branches folder,
+ * named after it: "25-day shoot.json". The main line is budget.json.
+ */
+export function branchFileNames(history: BudgetHistory): Map<string, string> {
+  const out = new Map<string, string>();
+  const taken = new Set<string>();
+  for (const b of history.branches) {
+    if (b.id === MAIN_BRANCH) continue;
+    const base = projectFolderName(b.name) || 'Branch';
+    let name = `${base}.json`;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} (${n}).json`;
+    taken.add(name.toLowerCase());
+    out.set(b.id, name);
+  }
+  return out;
 }
 
 /** A folder name for a project: the budget's name without characters file systems refuse. */
@@ -329,4 +533,39 @@ export function projectFolderName(name: string): string {
   // Names Windows keeps for devices, and a leading dot, which hides a folder on macOS and Linux.
   if (/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(clean)) return `${clean} budget`;
   return clean || 'Budget';
+}
+
+/** The branch files a save writes: every file to keep in the branches folder, and the ones that changed. */
+export interface BranchFiles {
+  keep: string[];
+  write: { file: string; budget: Budget }[];
+}
+
+/**
+ * What a save writes to the branches folder, given what earlier saves wrote (`written`: a key per
+ * branch, empty for the first save since opening). Returns the files and the keys to remember.
+ */
+export function branchFilesToSave(
+  history: BudgetHistory,
+  written: Readonly<Record<string, string>>,
+): { files: BranchFiles; written: Record<string, string> } {
+  const names = branchFileNames(history);
+  const files: BranchFiles = { keep: [...names.values()], write: [] };
+  const next: Record<string, string> = {};
+  for (const b of history.branches) {
+    const file = names.get(b.id);
+    if (!file) continue;
+    const key = `${file}\n${b.head}`;
+    next[b.id] = key;
+    if (written[b.id] === key) continue;
+    const head = history.entries.find((e) => e.id === b.head);
+    if (head) files.write.push({ file, budget: head.budget });
+  }
+  return { files, written: next };
+}
+
+/** The main line's end: what budget.json holds. */
+export function mainBudget(history: BudgetHistory): Budget {
+  const head = history.branches.find((b) => b.id === MAIN_BRANCH)?.head;
+  return (history.entries.find((e) => e.id === head) ?? history.entries[0]!).budget;
 }

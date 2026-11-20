@@ -3,7 +3,7 @@ import { strFromU8, unzipSync, zipSync } from 'fflate';
 
 /**
  * A .fringe file: one budget project in a single file to send or back up. It's a plain ZIP of the
- * project folder (project.json, budget.json, history/, knowledge/, versions/, README.md), so any unzip tool
+ * project folder (project.json, budget.json, branches/, history/, knowledge/, versions/, README.md), so any unzip tool
  * opens it too. Opening one unpacks it into a new project folder.
  *
  * Files come from other people, so unpacking only keeps the project's own files, refuses paths
@@ -14,7 +14,7 @@ export const FRINGE_EXTENSION = 'fringe';
 
 /** The parts of a project folder that go in the file. */
 const TOP_FILES = new Set(['project.json', 'budget.json', 'readme.md']);
-const TOP_FOLDERS = new Set(['history', 'knowledge', 'versions']);
+const TOP_FOLDERS = new Set(['branches', 'history', 'knowledge', 'versions']);
 
 export const MAX_FILE_BYTES = 1024 * 1024 * 1024;
 const MAX_UNPACKED_BYTES = 2 * 1024 * 1024 * 1024;

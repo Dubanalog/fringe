@@ -26,7 +26,7 @@ ones.
 7. [Percentages and tax incentives](#7-percentages-and-tax-incentives)
 8. [Reports](#8-reports)
 9. [Crew List](#9-crew-list)
-10. [History and versions](#10-history-and-versions)
+10. [Versions and branches](#10-versions-and-branches)
 11. [Knowledge](#11-knowledge)
 12. [AI](#12-ai)
 13. [Add-ons](#13-add-ons)
@@ -106,7 +106,8 @@ Some costs are worked out from the budget itself rather than line by line:
 A budget goes through many drafts. Each time one goes to a studio, a financier or the bond
 company, it's saved as a version (v1, v2…). Later, people will ask what changed between
 versions: "the studio cut $1M; where did it come from?" Fringe keeps every version and can compare
-any two (section 10).
+any two. To try a different plan, such as a shorter shoot, without touching what was sent, start a
+**branch**: another line of the same budget, with its own versions (section 10).
 
 ---
 
@@ -168,7 +169,7 @@ The Help menu opens this manual, the project's page, and a form to report a prob
 ## 3. The screen
 
 - **Left sidebar:** the main pages: Budget, Budget Settings, Reports, Crew List,
-  Knowledge, History, AI and Add-ons, with Settings at the bottom.
+  Knowledge, Versions, AI and Add-ons, with Settings at the bottom.
 - **Tabs across the top:** one per open budget.
 - AI button (top right, Ctrl+J): opens the AI panel beside the budget (section 12).
 - **Breadcrumbs:** where you are in the budget (Topsheet › 3300 Camera › …), with Back and
@@ -444,54 +445,81 @@ Save it with Save PDF… or Save Excel…, or print it with the other reports.
 
 ---
 
-## 10. History and versions
+## 10. Versions and branches
 
 ### Undo and redo
 
 Ctrl+Z undoes and Ctrl+Y redoes (⌘Z and ⇧⌘Z on a Mac). Nothing is ever lost: if you
-undo and then make a different change, the old path is kept in History.
+undo and then make a different change, the old path is still kept in the budget's history.
 
-### The History page
+### The Versions page
 
-History lists every change, by you or the AI, newest first: what changed, where, the total
-after it, and when. Changes the AI made are marked. Click a change to see exactly what it did.
-Changes are also marked Not in a version yet (made since the last saved version) or Not in
-the budget now (undone, or after a point you went back to).
+The Versions page shows the budget as a tree. The main line is named after the budget, and each
+branch (see below) has its own row. Along each row are the versions saved on it, ending in a dashed
+**Latest** point: the budget as it is now on that branch, where work goes on. Hover over a point to
+see its total, who it went to and when; the point you're looking at is marked Showing now.
 
-Each change has two buttons:
+Click a point for what you can do with it:
 
-- **Go back to here:** the budget returns to how it was then. Later changes are kept, so you can
-  go forward again.
-- **Fork from here:** opens a copy of the budget as it was then, as a new budget in its own tab
-  and folder, to try something else ("what if we shoot in 25 days?") without touching the
-  original. Name it, and it carries its history with it.
+- **Open and work here** (the end of a branch), or **Open (read-only)** (a version or an
+  earlier point): shows the budget as it was there.
+- **Start a branch from here…:** see Branches below.
+- **Changes since v…:** what changed from this version to the budget now.
+- **Compare with v…:** this version against the one saved before it.
+- **Show PDF:** the PDF saved with it, in its folder.
+- **Edit details…**, or **Delete version…**. Deleting a version doesn't delete any changes, only
+  the bookmark.
+- **Copy to new budget…:** a separate budget, in its own tab and folder, starting from this
+  point. Name it, and it carries its history with it.
+
+Click a branch's name to open its latest, rename it, or mark it not picked.
+
+Below the tree, **Changes on…** lists every change on the branch showing, by you or the AI,
+newest first: what changed, where, the total after it, and when. Changes the AI made are marked.
+Click a change to see exactly what it did. Changes are also marked Not in a version yet (made
+since the last saved version) or Not in the budget showing (undone, or after the point you're
+looking at).
+
+![The Versions page with three saved versions](images/history.png)
 
 ### Saving a version
 
-When a draft goes out, click Save version… on the History page and fill in:
+When a draft goes out, click Save version… on the Versions page and fill in:
 
-- **Version:** the number. Fringe suggests the next one, e.g. v1.1 or v2.0.
+- **Version:** the number. Fringe suggests the next one on the branch, e.g. v1.1 or v2.0.
 - **Name:** e.g. "Studio draft".
 - Sent on and Sent to: when and to whom, e.g. "Studio, completion bond".
 - Notes.
 - What changed since the last version. Fill in from the figures writes it from the
   numbers; or ask the AI in the side panel to write it.
 - **Save a PDF of the reports:** saves the reports ticked on the Reports page as a PDF in the
-  budget's `versions` folder, so you have exactly what was sent.
+  budget's `versions` folder, so you have exactly what was sent. A version on a branch has the
+  branch in its file name, e.g. "Pilot - 25-day shoot v1.0.pdf".
 
-### Working with versions
+A version is always saved from the latest point of a branch.
 
-Each saved version shows its total, who it went to and when, its notes and what changed, with:
+### Versions and earlier points stay as they were
 
-- **Changes since:** what changed from this version to the budget now.
-- **Compare with v…:** this version against the one saved before it.
-- **Show PDF:** the PDF saved with it, in its folder.
-- **Go back to here:** the budget as it was at this version.
-- **Fork:** a new budget starting from this version.
-- Edit the details, or Delete the version. Deleting a version doesn't delete any changes,
-  only the bookmark.
+A saved version is what was sent, so it never changes. When you open a version or an earlier
+point, a bar above the budget says what you're looking at, and the budget is greyed. To go on
+working, click **Back to latest**. To change what you're looking at, click **Start a branch from
+here…** and name the branch. If you start typing anyway, Fringe keeps your change and asks for a
+branch name to put it on, or you can drop it.
 
-![The History page with three saved versions](images/history.png)
+### Branches
+
+A branch is another line of the same budget, for a different plan: "what if we shoot in 25 days?"
+Start one from a saved version or from the latest point of a branch: click the point, choose
+Start a branch from here…, and give it a name, such as "25-day shoot". The branch opens, ready to
+work on, and the point it started from stays as it was.
+
+- Each branch numbers its own versions from v1.0, so the 25-day shoot's v1.0 is not the main
+  line's v1.0.
+- The tab shows which branch you're on, e.g. "Pilot · 25-day shoot".
+- Branches are never merged. When the studio picks a plan, mark the others **not picked**: they're
+  greyed and can be hidden (Show branches not picked), but never deleted. Pick it back up to undo
+  that.
+- To make a branch into a budget of its own, use Copy to new budget… on one of its points.
 
 ### Comparing versions
 
@@ -505,8 +533,8 @@ and it prints and exports like the other reports.
 There are three ways in:
 
 - Compare at the top of the budget page: the latest version against the budget now.
-- Compare with v… on a version in History: that version against the one saved before it.
-- Changes since on a version in History: that version against the budget now.
+- Compare with v… on a version on the Versions page: that version against the one saved before it.
+- Changes since v… on a version on the Versions page: that version against the budget now.
 
 ---
 
@@ -573,7 +601,9 @@ shows each step it takes in plain words, and Working…. You can stop it at any 
   you click Allow or Don't Allow. Allow all in this chat lets it go ahead without
   asking for the rest of the chat; Ask me again turns that off. Changes to instruction files
   always ask.
-- Every change the AI makes is a normal History entry, marked as the AI's, that you can undo.
+- Every change the AI makes goes into the budget's history like yours, marked as the AI's, and you
+  can undo it. The AI can't change a version or an earlier point either: it asks you to start a
+  branch (it can start one once you name it and allow it) or to go back to the latest.
 - New Chat starts over.
 - The terminal button opens Claude Code in a terminal, for people who prefer it.
 - Drag the panel's edge to make it wider; double-click the edge for the usual width.
@@ -679,15 +709,17 @@ On a Mac, use ⌘ where it says Ctrl (except Ctrl+Tab).
 - **Below-the-line (BTL):** the crew, equipment, sets, locations and other costs of shooting.
 - **Box or kit rental:** a fee paid to crew members for using their own equipment. It isn't wages,
   so it has no fringes.
+- **Branch:** another line of the same budget, started from a version, for a different plan,
+  e.g. "25-day shoot". It numbers its own versions from v1.0.
 - **Category:** a department or area of cost on the topsheet, e.g. 3300 Camera.
 - **Chart of accounts:** the numbered list of categories and accounts a budget uses.
 - **Completion bond:** insurance that guarantees a film is finished and delivered, priced as a
   percentage of the budget.
 - **Contingency:** an amount set aside for the unexpected, usually a percentage of the budget.
+- **Copy to new budget:** a separate budget, started from any point in another's history.
 - **Cutoff:** the most pay per person in a year that a fringe is charged on.
 - **Deal memo:** the agreed terms for hiring a person: rate, dates, credit.
 - **Flat:** a fixed fee, not by time.
-- **Fork:** a copy of a budget, from any point in its history, to try something else.
 - **Fringe:** a cost on top of wages, such as payroll taxes, pension, health, vacation pay or
   workers' compensation.
 - **Fringe range:** lines for the same person, so a cutoff is used up across them.

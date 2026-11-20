@@ -1,5 +1,6 @@
 import type {
   Budget,
+  BranchFiles,
   BudgetHistory,
   HistoryEvent,
   LibraryFringe,
@@ -101,8 +102,8 @@ export interface FringeApi {
   /** Shows a folder picker and opens the project. Resolves null if the user cancels. */
   openProject(): Promise<OpenProjectResult | null>;
   openRecentProject(path: string): Promise<OpenProjectResult>;
-  /** Writes new history events and the current budget to an open project. */
-  saveProject(path: string, budget: Budget, events: HistoryEvent[]): Promise<void>;
+  /** Writes new history events, the main line (budget.json) and changed branch files to an open project. */
+  saveProject(path: string, budget: Budget, events: HistoryEvent[], branches?: BranchFiles): Promise<void>;
   closeProject(path: string): Promise<void>;
   recentProjects(): Promise<RecentProject[]>;
   forgetRecentProject(path: string): Promise<void>;

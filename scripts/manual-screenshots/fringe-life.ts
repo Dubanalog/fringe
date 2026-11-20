@@ -5,9 +5,12 @@ import {
   BUDGET_TOOLS,
   type Budget,
   type BudgetHistory,
+  MAIN_BRANCH,
+  createBranch,
   historyEvents,
   newBudget,
   newProjectFile,
+  openBranch,
   projectFolderName,
   recordChange,
   saveVersion,
@@ -448,6 +451,7 @@ export function buildHistory(): BudgetHistory {
     'Rosie deal closed higher; VFX added for the crash.',
     'Rosie up 50,000 (1401). New 5400 Visual Effects for the highway crash. Drone day added to camera.',
   );
+  const v11 = history.entries[history.current]!.id;
 
   // The studio's cut.
   day = new Date('2026-10-27T15:00:00Z');
@@ -463,6 +467,22 @@ export function buildHistory(): BudgetHistory {
     'Answers the studio note to bring the budget down.',
     'Shoot cut from 25 to 22 days. VFX down 40,000. Drone cut. Two fewer diner days.',
   );
+
+  // A branch that keeps the 25-day schedule, for the producers to compare.
+  day = new Date('2026-11-04T16:00:00Z');
+  history = createBranch(history, '25-day shoot', v11, at(0)).history;
+  budget = history.entries[history.current]!.budget;
+  run('update_lines', { account: '5401', lines: [{ line: 1, rate: 80000 }] }, 'Rate on 5401 line 1');
+  version(
+    '1.0',
+    'Full schedule',
+    '2026-11-06',
+    'Producers',
+    'Keeps all 25 shoot days; VFX at the studio number.',
+    'From v1.1 with VFX down 40,000.',
+  );
+  history = openBranch(history, MAIN_BRANCH);
+  budget = history.entries[history.current]!.budget;
 
   // Since the studio draft.
   day = new Date('2026-11-12T17:00:00Z');

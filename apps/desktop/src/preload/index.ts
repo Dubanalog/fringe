@@ -15,7 +15,8 @@ const api: FringeApi = {
   createProject: (name) => ipcRenderer.invoke(IpcChannel.createProject, name),
   openProject: () => ipcRenderer.invoke(IpcChannel.openProject),
   openRecentProject: (path) => ipcRenderer.invoke(IpcChannel.openRecentProject, path),
-  saveProject: (path, budget, events) => ipcRenderer.invoke(IpcChannel.saveProject, path, budget, events),
+  saveProject: (path, budget, events, branches) =>
+    ipcRenderer.invoke(IpcChannel.saveProject, path, budget, events, branches),
   closeProject: (path) => ipcRenderer.invoke(IpcChannel.closeProject, path),
   recentProjects: () => ipcRenderer.invoke(IpcChannel.recentProjects),
   forgetRecentProject: (path) => ipcRenderer.invoke(IpcChannel.forgetRecentProject, path),

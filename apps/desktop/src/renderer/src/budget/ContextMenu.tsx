@@ -16,11 +16,13 @@ interface Props {
   x: number;
   y: number;
   items: readonly MenuEntry[];
+  /** Shown above the items, e.g. what the menu is for. */
+  header?: React.ReactNode;
   onClose(): void;
 }
 
 /** A themed right-click menu. Arrow keys move, Enter picks, Escape or a click elsewhere closes. */
-export function ContextMenu({ x, y, items, onClose }: Props) {
+export function ContextMenu({ x, y, items, header, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
 
@@ -68,6 +70,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {header && <div className="menu-header">{header}</div>}
       {items.map((item, i) =>
         item === 'separator' ? (
           <div key={i} className="menu-separator" role="separator" />

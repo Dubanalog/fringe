@@ -1,12 +1,17 @@
 import {
   type Budget,
+  branchFilesToSave,
   calculateTotals,
   canRedo,
   canUndo,
+  copyName,
+  findBranch,
   forkBudget,
-  forkName,
   formatMoney,
+  MAIN_BRANCH,
+  mainBudget,
   newBudget,
+  readOnlyNote,
   runTool,
   runVersionTool,
 } from '@fringe/budget-engine';
@@ -30,13 +35,14 @@ import { BudgetSettingsView } from './budget/BudgetSettingsView';
 import { FringeLibrarySettings } from './budget/FringeLibrary';
 import { BudgetWorkspace } from './budget/BudgetWorkspace';
 import { HistoryView } from './budget/HistoryView';
+import { LockBar, needsLockBar } from './budget/LockBar';
 import { ImportReportView } from './budget/ImportReportView';
 import { CrewListView } from './budget/CrewListView';
 import { ReportsView } from './budget/ReportsView';
 import type { ComparePair } from './budget/compare-pick';
 import { GlobalKnowledge, KnowledgeView } from './budget/KnowledgeView';
 import { TabStrip } from './budget/TabStrip';
-import { type BudgetTab, initialTabs, tabsReducer } from './budget/tabs';
+import { type BudgetTab, type TabsAction, initialTabs, tabsReducer } from './budget/tabs';
 import { FringeMark } from './FringeMark';
 import { SlidingHighlight } from './SlidingHighlight';
 import { ThemePicker } from './theme/ThemePicker';
@@ -104,8 +110,8 @@ const NAV: readonly NavItem[] = [
   },
   {
     id: 'history',
-    label: 'History',
-    planned: 'Every change, with undo, going back and forks.',
+    label: 'Versions',
+    planned: 'Versions and branches of the budget, and every change.',
     perBudget: true,
   },
   {
@@ -139,6 +145,9 @@ export function App() {
   const shown = (item: NavItem) => (active || !item.perBudget) && (active?.budget.source || !item.imported);
   // Per-budget views fall back to Budget (the start page) when no budget is open.
   const shownView = NAV.some((n) => n.id === view && !shown(n)) ? 'budget' : view;
+  // A version or an earlier point is showing: the views that edit the budget say so, and why.
+  const lockShown =
+    !!active && needsLockBar(active) && ['budget', 'budget-settings', 'crew', 'addon'].includes(shownView);
   const currentNav = NAV.find((n) => n.id === shownView);
 
   // Add-ons are the app's, not a budget's: the sidebar lists them under Add-ons.
@@ -272,7 +281,7 @@ export function App() {
         try {
           let versionOutcome = runVersionTool(tab.history, call.name, call.input);
           if (versionOutcome) {
-            if (versionOutcome.version && call.confirm && !allowAllNow.current) {
+            if ((versionOutcome.version || versionOutcome.branch) && call.confirm && !allowAllNow.current) {
               const text = (versionOutcome.label ?? call.name).replace(/^AI:\s*/, '');
               setPanelOpen(true);
               const allowed = await new Promise<boolean>((resolve) => {
@@ -297,6 +306,12 @@ export function App() {
             if (versionOutcome.version) {
               dispatch({ type: 'saveVersion', id: tab.id, version: versionOutcome.version });
             }
+            if (versionOutcome.branch) {
+              const action: TabsAction = { type: 'createBranch', id: tab.id, ...versionOutcome.branch };
+              dispatch(action);
+              // At once, so the AI's next change goes on the new branch.
+              latest.current = tabsReducer(latest.current, action);
+            }
             if (versionOutcome.draft) {
               // Shows the filled-in form for the user to check and save.
               dispatch({ type: 'draftVersion', id: tab.id, draft: versionOutcome.draft });
@@ -307,6 +322,11 @@ export function App() {
             return { ok: true, result: versionOutcome.result };
           }
           let outcome = runTool(tab.budget, call.name, call.input);
+          const locked = outcome.budget ? readOnlyNote(tab.history) : null;
+          if (locked) {
+            log(false, 'Read-only');
+            return { ok: false, error: locked };
+          }
           if (outcome.budget && call.confirm && !allowAllNow.current) {
             // The panel's chat asks before each change. Run again afterwards, on the budget as it
             // is then, since the user may have changed it while deciding.
@@ -327,6 +347,12 @@ export function App() {
             if (!tab) {
               log(false, 'Budget closed');
               return { ok: false, error: 'The budget was closed before the change was allowed.' };
+            }
+            // The user may have opened a version meanwhile.
+            const lockedNow = readOnlyNote(tab.history);
+            if (lockedNow) {
+              log(false, 'Read-only');
+              return { ok: false, error: lockedNow };
             }
             outcome = runTool(tab.budget, call.name, call.input);
           }
@@ -362,7 +388,7 @@ export function App() {
     }
   }, []);
 
-  // The tab whose name is being edited (double-click, F2, or a new fork, ready to name).
+  // The tab whose name is being edited (double-click, F2, or a new copy, ready to name).
   const [renamingTab, setRenamingTab] = useState<string | null>(null);
   const renameBudget = (tab: BudgetTab, name: string) =>
     dispatch({ type: 'update', id: tab.id, budget: { ...tab.budget, name }, label: `Renamed to ${name}` });
@@ -481,11 +507,13 @@ export function App() {
         continue;
       }
       const count = t.unsaved.length;
+      // budget.json is the main line; each other branch that changed goes to its own file.
+      const { files, written } = branchFilesToSave(t.history, t.branchFiles);
       saving.current.add(t.id);
       window.fringe
-        .saveProject(t.project, t.budget, t.unsaved)
+        .saveProject(t.project, mainBudget(t.history), t.unsaved, files)
         .then(
-          () => dispatch({ type: 'saved', id: t.id, count }),
+          () => dispatch({ type: 'saved', id: t.id, count, branchFiles: written }),
           (err: unknown) => dispatch({ type: 'saveFailed', id: t.id, error: message(err) }),
         )
         .finally(() => saving.current.delete(t.id));
@@ -664,7 +692,8 @@ export function App() {
         </button>
       </nav>
 
-      <main className="workspace">
+      <main className={lockShown ? 'workspace read-only' : 'workspace'}>
+        {lockShown && active && <LockBar key={`lock ${active.id}`} tab={active} dispatch={dispatch} />}
         {shownView === 'settings' ? (
           <SettingsView info={info} />
         ) : shownView === 'budget' ? (
@@ -719,23 +748,46 @@ export function App() {
         ) : shownView === 'history' && active ? (
           <HistoryView
             tab={active}
-            goTo={(entryId) => dispatch({ type: 'goTo', id: active.id, entryId })}
+            open={({ branchId, entryId, end }) => {
+              dispatch(
+                end
+                  ? { type: 'openBranch', id: active.id, branchId }
+                  : { type: 'goTo', id: active.id, entryId },
+              );
+              setView('budget');
+            }}
+            startBranch={(name, fromEntryId) => {
+              dispatch({ type: 'createBranch', id: active.id, name, fromEntryId });
+              setView('budget');
+            }}
+            renameBranch={(branchId, name) =>
+              dispatch({ type: 'renameBranch', id: active.id, branchId, name })
+            }
+            setNotPicked={(branchId, notPicked) =>
+              dispatch({ type: 'setNotPicked', id: active.id, branchId, notPicked })
+            }
             saveVersion={(version) => dispatch({ type: 'saveVersion', id: active.id, version })}
             deleteVersion={(versionId) => dispatch({ type: 'deleteVersion', id: active.id, versionId })}
             clearDraft={() => dispatch({ type: 'draftVersion', id: active.id, draft: null })}
             showChanges={showChanges}
-            openFork={(entryId, version) => {
+            copyToNew={(entryId, version, branchId) => {
               void (async () => {
                 const taken = [
                   ...state.tabs.map((t) => t.budget.name),
                   ...(await window.fringe.recentProjects()).map((r) => r.name),
                 ];
-                const name = forkName(active.budget.name, taken, version);
-                const fork = forkBudget(active.history, name, entryId);
-                if (await openInNewProject(fork, `Forked from ${active.budget.name}`)) {
+                const branch = branchId ? findBranch(active.history, branchId) : null;
+                const name = copyName(
+                  active.budget.name,
+                  taken,
+                  version,
+                  branch && branch.id !== MAIN_BRANCH ? branch.name : undefined,
+                );
+                const copy = forkBudget(active.history, name, entryId);
+                if (await openInNewProject(copy, `Copied from ${active.budget.name}`)) {
                   setView('budget');
                   // Ready to name: type over it, or Enter to keep it.
-                  setRenamingTab(fork.id);
+                  setRenamingTab(copy.id);
                 }
               })();
             }}

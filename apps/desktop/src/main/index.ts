@@ -243,10 +243,15 @@ function registerProjectIpc(): void {
     return opened(path as string);
   });
 
-  ipcMain.handle(IpcChannel.saveProject, (_event, path: unknown, budget: unknown, events: unknown) => {
-    if (!budget || typeof budget !== 'object' || !Array.isArray(events)) throw new Error('Invalid save');
-    return saveProject(path, budget as never, events as never);
-  });
+  ipcMain.handle(
+    IpcChannel.saveProject,
+    (_event, path: unknown, budget: unknown, events: unknown, branches: unknown) => {
+      if (!budget || typeof budget !== 'object' || !Array.isArray(events)) throw new Error('Invalid save');
+      const b = branches as { keep?: unknown; write?: unknown } | undefined;
+      const files = b && Array.isArray(b.keep) && Array.isArray(b.write) ? (b as never) : undefined;
+      return saveProject(path, budget as never, events as never, files);
+    },
+  );
 
   ipcMain.handle(IpcChannel.closeProject, (_event, path: unknown) => closeProject(path));
   ipcMain.handle(IpcChannel.recentProjects, () => recentProjects());

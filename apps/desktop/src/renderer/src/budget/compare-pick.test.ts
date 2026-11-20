@@ -7,6 +7,7 @@ const v = (id: string, number: string): BudgetVersion => ({
   number,
   name: '',
   entryId: id,
+  branch: 'main',
   savedAt: '2026-11-01T00:00:00Z',
   sentOn: '',
   sentTo: '',

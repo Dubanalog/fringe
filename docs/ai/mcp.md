@@ -12,9 +12,17 @@ Fringe runs a small MCP server so an AI app can read and edit the budgets open i
   globals, units, groups, codes, numbering, options, report title and assumptions), and the `import_assistant` prompt
   (`docs/ai/import-assistant.md`). `version-tools.ts` reads and compares the saved versions
   (`list_versions`, `compare_versions`, worked out from the history like the version form's fill
-  button) fills in the "Save version" form for the user to check and save (`fill_version_form`), and changes
+  button), fills in the "Save version" form for the user to check and save (`fill_version_form`), and changes
   a saved version's details (`update_version`). Tool calls run in the window; edits go into the budget's
   history as "AI: …" and are saved.
+- **Branches:** `list_branches` lists the main line and the named branches, where each started,
+  its versions and what the user is looking at. `create_branch` starts one from a version or a
+  branch's latest (the user allows it, as with an edit) and shows it, so the AI's next edits go on
+  it. Each branch numbers its own versions, so `list_versions` and `update_version` take a
+  `branch`, and `compare_versions` a `fromBranch` and `toBranch`; left out, they mean the branch
+  showing. When the user is looking at a version or an earlier point, edits are refused before
+  they're asked about, with a note telling the AI to start a branch or ask the user to go back to
+  the latest (`readOnlyNote`); `fill_version_form` is refused there too.
 - **Which budget:** every tool takes an optional `budget`; without it, a call from Fringe's chat
   panel goes to the chat's budget (the tab showing when the conversation started, or the one the
   user switched it to), and a call from anywhere else goes to the budget showing. If the chat's tab
@@ -31,7 +39,7 @@ Fringe runs a small MCP server so an AI app can read and edit the budgets open i
   `knowledge/`. `knowledge/instructions.md` holds standing instructions for that budget;
   `Fringe Budgets/instructions.md` holds them for every budget and goes into the system prompt.
   `update_instructions` adds to or rewrites either file. From the chat panel the user always
-  allows it, seeing the text (History can't undo a file, so "Allow all" doesn't cover it).
+  allows it, seeing the text (undo can't reach a file, so "Allow all" doesn't cover it).
   Other MCP apps write it straight away, as their budget edits go straight in.
 
 ## The AI panel

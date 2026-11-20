@@ -18,7 +18,16 @@ interface Props {
  * Open budgets across the top. "+" goes to the start page to open another. Ctrl+Tab switches.
  * Double-click a tab (or F2 on it) to rename the budget.
  */
-export function TabStrip({ tabs, activeId, onActivate, onClose, renaming, onRenaming, onRename, working }: Props) {
+export function TabStrip({
+  tabs,
+  activeId,
+  onActivate,
+  onClose,
+  renaming,
+  onRenaming,
+  onRename,
+  working,
+}: Props) {
   return (
     <div className="tab-strip" role="tablist" aria-label="Open budgets">
       {tabs.map((tab) => (

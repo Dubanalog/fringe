@@ -215,7 +215,11 @@ describe('changes report', () => {
     const table = doc.sections[0]!.blocks.find((b) => b.kind === 'table')!;
     if (table.kind !== 'table') throw new Error('table');
     const grand = table.rows.find((r) => r.cells[1] === 'Grand Total')!;
-    return { heading: table.heading, columns: table.columns.map((c) => c.label), grand: grand.cells.slice(2) };
+    return {
+      heading: table.heading,
+      columns: table.columns.map((c) => c.label),
+      grand: grand.cells.slice(2),
+    };
   };
 
   it('compares a version with the budget now', () => {

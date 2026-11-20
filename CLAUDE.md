@@ -9,6 +9,7 @@ The person building it is a production accountant, so ask about budgeting and pa
 Private notes go in `CLAUDE.local.md` (not tracked).
 
 ## Read first
+
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): setup, commands (`npm run dev`, `npm test`,
   `npm run check`), layout, releases.
 - [docs/project-folder.md](docs/project-folder.md): how a budget is stored on disk.
@@ -17,6 +18,7 @@ Private notes go in `CLAUDE.local.md` (not tracked).
 - [docs/manual.md](docs/manual.md): the user manual. Update it when a feature changes.
 
 ## Rules
+
 - **The engine stays pure.** `packages/budget-engine` has no Electron and no I/O.
 - **No format-specific importers.** Budgets from other programs are converted by the AI, following
   `docs/ai/import-assistant.md`. Never add a parser for one program's file format. Keep the guide

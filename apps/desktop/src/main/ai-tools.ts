@@ -451,7 +451,10 @@ export const APP_TOOLS: readonly AppTool[] = [
 ];
 
 /** A file the AI named from a knowledge listing: a Global Knowledge one, or one in its budget's folder. */
-export async function knowledgeFilePath(input: Record<string, unknown>, from: CallFrom): Promise<string | null> {
+export async function knowledgeFilePath(
+  input: Record<string, unknown>,
+  from: CallFrom,
+): Promise<string | null> {
   if (isGlobalName(input['name'])) return globalFilePath(projectsRoot(), input['name']);
   return budgetFilePath(await projectFor(input, from), input['name']);
 }

@@ -63,7 +63,8 @@ export const budgetFilePath = (project: string, name: unknown): string | null =>
   fileIn(project, BUDGET_FOLDER, name);
 
 /** A file in the Global Knowledge folder, or null for anything outside it. */
-export const globalFilePath = (root: string, name: unknown): string | null => fileIn(root, GLOBAL_FOLDER, name);
+export const globalFilePath = (root: string, name: unknown): string | null =>
+  fileIn(root, GLOBAL_FOLDER, name);
 
 /** Whether a file name, as the AI got it from a listing, is a Global Knowledge one. */
 export const isGlobalName = (name: unknown): boolean =>

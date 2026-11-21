@@ -65,8 +65,6 @@ Download the installer for your computer from the
 
 The Windows installer isn't signed yet: if SmartScreen warns, click **More info → Run anyway**.
 
-> Fringe is in early development. Check its figures before you rely on them for a real production.
-
 ## Contributing
 
 Developers: see [DEVELOPMENT.md](docs/DEVELOPMENT.md) to build and run Fringe.

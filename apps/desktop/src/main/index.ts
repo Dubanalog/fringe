@@ -83,6 +83,7 @@ import {
   setOpenBudgets,
 } from './ai-tools';
 import {
+  addSampleOnFirstLaunch,
   closeProject,
   createProject,
   exportProject,
@@ -90,6 +91,7 @@ import {
   importFringeFile,
   isOpenProject,
   openProject,
+  openSampleProject,
   projectsRoot,
   recentProjects,
   saveProject,
@@ -241,6 +243,14 @@ function registerProjectIpc(): void {
     const recent = await recentProjects();
     if (!recent.some((r) => r.path === path)) throw new Error('Not a recent project');
     return opened(path as string);
+  });
+
+  ipcMain.handle(IpcChannel.openSampleProject, async (): Promise<OpenProjectResult> => {
+    try {
+      return { ok: true, ...(await openSampleProject()) };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Could not make the sample budget.' };
+    }
   });
 
   ipcMain.handle(
@@ -661,7 +671,7 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     registerIpc();
     registerProjectIpc();
     registerAiIpc();
@@ -669,6 +679,9 @@ if (!app.requestSingleInstanceLock()) {
     registerFringeLibraryIpc();
     serveAddons();
     setMenu();
+    // A new user's first launch: the sample budget, waiting on the start page. A failure only
+    // means they open it from there instead.
+    await addSampleOnFirstLaunch().catch(() => undefined);
     createMainWindow();
     void mcpEnabled().then((on) => (on ? startMcpServer(callTool) : null));
     app.on('activate', () => {

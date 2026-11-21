@@ -47,13 +47,22 @@ npx electron scripts/manual-pdf.mjs
 
 It's written to `apps/desktop/release/Fringe-Manual.pdf`, and each release builds it too.
 
-The screenshots in `docs/images/` are taken from "Fringe Life", a sample budget built in
-`scripts/manual-screenshots/fringe-life.ts`. To take them again after a change to the screens,
-build the app, then run the screenshot script:
+The screenshots in `docs/images/` are taken from "Fringe Life", the sample budget the start page
+opens. It's built in `apps/desktop/src/main/sample-budget.ts`, and
+`scripts/manual-screenshots/fringe-life.ts` writes it out for the screenshots. To take them again
+after a change to the screens, build the app, then run the screenshot script:
 
 ```bash
 cd apps/desktop && npx electron-vite build && cd ../..
 npx playwright test --config scripts/manual-screenshots/playwright.config.ts
+```
+
+The sample files the README links (`docs/sample/`: the .fringe file and the reports as PDF and
+Excel) are exported from the same sample. After a change to the sample or the reports, build the
+app as above and export them again:
+
+```bash
+npx playwright test --config scripts/sample-files/playwright.config.ts
 ```
 
 ## Releases

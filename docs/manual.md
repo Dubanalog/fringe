@@ -10,8 +10,8 @@ This manual assumes you've never built a film or TV budget. Section 1 explains h
 you already know, skip to section 2. Industry terms are explained in the [Glossary](#glossary) at
 the end.
 
-The pictures show Fringe Life, a sample budget. Its rates are made-up round numbers, not real
-ones.
+The pictures show Fringe Life, the sample budget that comes with the app (Open the sample
+budget, on the start page). Its rates are made-up round numbers, not real ones.
 
 ---
 
@@ -138,7 +138,13 @@ When no budget is open, the start page offers:
 - Open project (Ctrl+O): a budget folder already on this computer.
 - Import .fringe file (Ctrl+I): a budget someone sent you.
 - Convert a budget: one made in another program; the AI converts it (section 12).
+- Open the sample budget: a copy of Fringe Life, a small feature with a few weeks of history,
+  versions and branches, to try things on. Each click makes a new copy in your budgets folder,
+  yours to change or delete. Its fringe rates are made up: don't copy them into a real budget.
 - Recent: the budgets you've opened lately.
+
+The first time you start Fringe, Fringe Life is already in your budgets folder and on the
+Recent list. Delete it whenever you like; it doesn't come back.
 
 Each open budget gets its own tab across the top, like a web browser. Click + to open another,
 Ctrl+Tab moves between them, and double-clicking a tab (or F2) renames the budget.

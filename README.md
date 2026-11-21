@@ -44,6 +44,17 @@ Fringe handles the totals, fringes, currencies, versions and reports.
   or have it convert a budget from another program, checked total by total. Use your own Claude
   plan or an API key; nothing is sent anywhere unless you ask.
 
+## See a sample budget
+
+Fringe Life is the sample budget that comes with the app: a small made-up feature. Its fringe
+rates are made-up round numbers, not real union or payroll rates. See what Fringe makes from it:
+
+- [The reports as a PDF](docs/sample/fringe-life.pdf): topsheet, account summary, detail and more.
+- [The reports as an Excel workbook](https://github.com/Dubanalog/fringe/raw/main/docs/sample/fringe-life.xlsx)
+  (downloads).
+- [The budget as a .fringe file](https://github.com/Dubanalog/fringe/raw/main/docs/sample/fringe-life.fringe)
+  (downloads), with its history, versions and branches. Open it in Fringe with Import .fringe file on the start page.
+
 ## Your files, on your computer
 
 A budget is a folder of plain files you own: no account, no cloud, no subscription. Back it up,

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { answerFileDialogs, budgetTotal, buildBudget, expect, launch, test } from './app';
 
@@ -156,4 +156,29 @@ test('exports a .fringe file that opens on another computer', async ({ app, page
   } finally {
     await other.app.close();
   }
+});
+
+test('a first launch has the sample budget; the start page opens another copy', async ({ page, home }) => {
+  const budgets = join(home, 'Documents', 'Fringe Budgets');
+  const folder = join(budgets, 'Fringe Life');
+  expect(readdirSync(join(folder, 'branches')).sort()).toEqual(['20-day shoot.json', '25-day shoot.json']);
+  expect(readFileSync(join(folder, 'knowledge', 'instructions.md'), 'utf8')).toContain('made-up');
+
+  await page.getByRole('button', { name: /^Fringe Life/ }).click();
+  await expect(budgetTotal(page).first()).not.toHaveText('0.00');
+
+  await page.getByRole('button', { name: 'Open another budget' }).click();
+  await page.getByRole('button', { name: /^Open the sample budget/ }).click();
+  await expect(page.getByRole('contentinfo')).toContainText('Saved');
+  expect(existsSync(join(budgets, 'Fringe Life (2)', 'budget.json'))).toBe(true);
+});
+
+test('a deleted sample budget stays deleted', async ({ home }) => {
+  const first = await launch(home);
+  await first.app.close();
+  rmSync(join(home, 'Documents', 'Fringe Budgets'), { recursive: true });
+
+  const second = await launch(home);
+  await second.app.close();
+  expect(existsSync(join(home, 'Documents', 'Fringe Budgets'))).toBe(false);
 });

@@ -717,6 +717,7 @@ export function App() {
               onOpenRecent={(path) => void window.fringe.openRecentProject(path).then(opened)}
               onImport={() => void openFringeFile()}
               onConvert={() => void convertBudget()}
+              onSample={() => void window.fringe.openSampleProject().then(opened)}
             />
           )
         ) : shownView === 'budget-settings' && active ? (
@@ -913,6 +914,7 @@ function StartView({
   onOpenRecent,
   onImport,
   onConvert,
+  onSample,
 }: {
   error: string | null;
   onNew(name: string): void;
@@ -922,6 +924,8 @@ function StartView({
   onImport(): void;
   /** A budget from another program, for the AI to convert. */
   onConvert(): void;
+  /** Opens a fresh copy of the sample budget. */
+  onSample(): void;
 }) {
   const [name, setName] = useState('');
   const nameInput = useRef<HTMLInputElement>(null);
@@ -984,6 +988,10 @@ function StartView({
           <button type="button" className="start-tile" onClick={onConvert}>
             <strong>Convert a budget…</strong>
             <span>Made in another program; the AI converts it</span>
+          </button>
+          <button type="button" className="start-tile" onClick={onSample}>
+            <strong>Open the sample budget</strong>
+            <span>Fringe Life, a small feature to try things on, with made-up rates</span>
           </button>
         </div>
 

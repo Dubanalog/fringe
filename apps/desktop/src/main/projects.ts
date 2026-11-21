@@ -8,6 +8,9 @@ import {
   type BudgetHistory,
   type HistoryEvent,
   type ProjectFile,
+  branchFilesToSave,
+  historyEvents,
+  mainBudget,
   newProjectFile,
   normalizeBudget,
   projectFolderName,
@@ -20,6 +23,7 @@ import {
 import { app } from 'electron';
 import type { OpenedProject, RecentProject } from '../shared/ipc';
 import { MAX_FILE_BYTES, isProjectPath, packProject, unpackProject } from './fringe-file';
+import { SAMPLE_KNOWLEDGE, SAMPLE_NAME, sampleHistory } from './sample-budget';
 
 /**
  * Budget project folders on disk (layout in packages/budget-engine/src/project.ts and
@@ -98,6 +102,53 @@ export async function createProject(name: string): Promise<{ path: string; proje
   allowed.set(path, { known: new Set(), queue: Promise.resolve(), name });
   await addRecent(path, name);
   return { path, project };
+}
+
+/**
+ * Writes a fresh copy of the sample budget, Fringe Life, to the projects folder ("Fringe Life (2)"
+ * when there's one already) and opens it. Each copy is the user's own to change.
+ */
+export async function openSampleProject(): Promise<OpenedProject> {
+  return openProject(await writeSampleProject());
+}
+
+/**
+ * On the first launch on this computer, a new user (no projects folder yet) finds the sample
+ * budget in their projects folder and on the Recent list. It's only ever added once: a user who
+ * deletes it doesn't get it back, and someone who already has budgets isn't given it unasked.
+ */
+export async function addSampleOnFirstLaunch(): Promise<void> {
+  const marker = join(app.getPath('userData'), 'sample-added');
+  if (await exists(marker)) return;
+  if (!(await exists(projectsRoot()))) {
+    const path = await writeSampleProject();
+    allowed.delete(path);
+    await addRecent(path, SAMPLE_NAME);
+  }
+  await mkdir(dirname(marker), { recursive: true });
+  await writeAtomic(marker, new Date().toISOString() + '\n');
+}
+
+/** Writes a copy of the sample budget to a new project folder. Its path. */
+async function writeSampleProject(): Promise<string> {
+  const history = sampleHistory();
+  const path = await newProjectPath(SAMPLE_NAME);
+  await mkdir(join(path, 'history', 'objects'), { recursive: true });
+  await mkdir(join(path, 'knowledge'), { recursive: true });
+  await writeAtomic(join(path, 'README.md'), README);
+  for (const [name, text] of Object.entries(SAMPLE_KNOWLEDGE)) {
+    await writeAtomic(join(path, 'knowledge', name), text);
+  }
+  const project = newProjectFile(SAMPLE_NAME, history.entries[0]!.at);
+  await writeAtomic(join(path, 'project.json'), JSON.stringify(project, null, 2) + '\n');
+  allowed.set(path, { known: new Set(), queue: Promise.resolve(), name: SAMPLE_NAME });
+  await saveProject(
+    path,
+    mainBudget(history),
+    historyEvents(history, history.entries.at(-1)!.at),
+    branchFilesToSave(history, {}).files,
+  );
+  return path;
 }
 
 /** Opens a project folder: its budget and its history as it was left. */

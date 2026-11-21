@@ -20,6 +20,7 @@ export const IpcChannel = {
   createProject: 'project:create',
   openProject: 'project:open',
   openRecentProject: 'project:open-recent',
+  openSampleProject: 'project:open-sample',
   saveProject: 'project:save',
   closeProject: 'project:close',
   recentProjects: 'project:recent',
@@ -102,6 +103,8 @@ export interface FringeApi {
   /** Shows a folder picker and opens the project. Resolves null if the user cancels. */
   openProject(): Promise<OpenProjectResult | null>;
   openRecentProject(path: string): Promise<OpenProjectResult>;
+  /** Writes a fresh copy of the sample budget (Fringe Life) to the projects folder and opens it. */
+  openSampleProject(): Promise<OpenProjectResult>;
   /** Writes new history events, the main line (budget.json) and changed branch files to an open project. */
   saveProject(path: string, budget: Budget, events: HistoryEvent[], branches?: BranchFiles): Promise<void>;
   closeProject(path: string): Promise<void>;

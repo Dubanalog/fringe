@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://dubanalog.com/">Website</a> ·
   <a href="https://github.com/Dubanalog/fringe/releases/latest">Download</a> ·
   <a href="https://github.com/Dubanalog/fringe/releases/latest/download/Fringe-Manual.pdf">Manual (PDF)</a> ·
   <a href="docs/manual.md">Manual (web)</a>
